@@ -2,6 +2,9 @@
 //!
 //! Compiled twice: with `ssr` inside the server binary and with `hydrate` to WebAssembly.
 
+// Release builds keep full Leptos view types (dev builds erase them), which nest deeper than the default limit.
+#![recursion_limit = "512"]
+
 pub mod api;
 pub mod app;
 pub mod components;

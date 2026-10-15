@@ -1,5 +1,8 @@
 //! Hydrates the server-rendered page in the browser.
 
+// Release builds keep full Leptos view types (dev builds erase them), which nest deeper than the default limit.
+#![recursion_limit = "512"]
+
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]

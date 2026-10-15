@@ -1,5 +1,8 @@
 //! gameshelf server entry point.
 
+// Release builds keep full Leptos view types (dev builds erase them), which nest deeper than the default limit.
+#![recursion_limit = "512"]
+
 mod api;
 mod config;
 mod cookies;
