@@ -1,5 +1,6 @@
 [package]
 name = "gameshelf-notify"
+description = "Notification senders of gameshelf: Discord, ntfy, Gotify (contracts/notifications.md)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,3 +11,13 @@ publish = false
 workspace = true
 
 [dependencies]
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }

@@ -1406,6 +1406,7 @@ dependencies = [
  "axum",
  "gameshelf-connectors",
  "gameshelf-core",
+ "gameshelf-notify",
  "gameshelf-store",
  "gameshelf-sync",
  "leptos",
@@ -1414,6 +1415,7 @@ dependencies = [
  "leptos_i18n_build",
  "leptos_meta",
  "leptos_router",
+ "reqwest",
  "secrecy",
  "serde",
  "serde_json",
@@ -1490,6 +1492,16 @@ dependencies = [
 [[package]]
 name = "gameshelf-notify"
 version = "0.1.0"
+dependencies = [
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "url",
+ "wiremock",
+]
 
 [[package]]
 name = "gameshelf-store"

@@ -16,12 +16,16 @@ use gameshelf_store::{
 /// Outcome of [`Syncer::run_account`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RunOutcome {
-    Imported(ImportReport),
+    Imported {
+        report: ImportReport,
+        run: gameshelf_core::RunId,
+    },
     /// The account cannot sync now (disabled, needs reconnect, no connector).
     Skipped(&'static str),
     Failed {
         kind: String,
         message: String,
+        run: gameshelf_core::RunId,
     },
 }
 
@@ -209,7 +213,7 @@ impl Syncer {
         if let Err(e) = self.importer.fetch_missing_covers(200).await {
             tracing::warn!(error = %e, "cover download failed");
         }
-        Ok(RunOutcome::Imported(report))
+        Ok(RunOutcome::Imported { report, run })
     }
 
     async fn fail(
@@ -254,6 +258,7 @@ impl Syncer {
         Ok(RunOutcome::Failed {
             kind: err.kind().to_string(),
             message: err.to_string(),
+            run,
         })
     }
 

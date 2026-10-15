@@ -21,6 +21,7 @@ pub use repo::{
     catalog::{GameSummary, NewProduct, Product},
     credentials::{CredentialKind, CredentialMeta, OpenedCredential},
     enrichment::EnrichmentValue,
+    notify::NotificationTarget,
     ownership::{ApplyOutcome, OwnershipSource, SnapshotItem},
     profiles::{NewProfile, Profile},
     runs::{RunCapability, RunResult, RunStatus, RunTrigger, SyncRun},

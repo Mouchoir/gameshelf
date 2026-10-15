@@ -118,6 +118,18 @@ pub struct ActivityRow {
     pub created_at: OffsetDateTime,
 }
 
+/// A notification target as shown on the Notifications page (secrets never leave the server).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TargetView {
+    pub id: String,
+    pub kind: String,
+    pub name: String,
+    pub events: Vec<String>,
+    pub enabled: bool,
+    pub last_sent_at: Option<OffsetDateTime>,
+    pub last_error: Option<String>,
+}
+
 /// Result of a connection attempt.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConnectResult {

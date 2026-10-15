@@ -449,3 +449,135 @@ pub async fn activity() -> Result<Vec<ActivityRow>, ServerFnError> {
     let _ = st.store.mark_activity_read(profile.id).await;
     Ok(out)
 }
+
+/// The profile's notification targets (US7).
+#[server]
+pub async fn notification_targets() -> Result<Vec<TargetView>, ServerFnError> {
+    let profile = require_profile().await?;
+    let targets = state()?.store.list_targets(profile.id).await.map_err(internal)?;
+    Ok(targets
+        .into_iter()
+        .map(|t| TargetView {
+            id: t.id,
+            kind: t.kind,
+            name: t.name,
+            events: t.events,
+            enabled: t.enabled,
+            last_sent_at: t.last_sent_at,
+            last_error: t.last_error,
+        })
+        .collect())
+}
+
+/// Adds a target. Returns an error message for invalid settings.
+#[server]
+pub async fn add_target(
+    kind: String,
+    name: String,
+    address: String,
+    topic: String,
+    token: String,
+) -> Result<Option<String>, ServerFnError> {
+    use gameshelf_notify::TargetConfig;
+    let profile = require_profile().await?;
+    let token = Some(token.trim().to_string()).filter(|t| !t.is_empty());
+    let config = match kind.as_str() {
+        "discord" => TargetConfig::Discord {
+            webhook_url: address.trim().to_string(),
+        },
+        "ntfy" => TargetConfig::Ntfy {
+            server: address.trim().to_string(),
+            topic: topic.trim().to_string(),
+            token,
+        },
+        "gotify" => TargetConfig::Gotify {
+            server: address.trim().to_string(),
+            token: token.unwrap_or_default(),
+        },
+        _ => return Ok(Some("unknown kind".into())),
+    };
+    if let Err(e) = config.validate() {
+        return Ok(Some(e.to_string()));
+    }
+    let bytes = serde_json::to_vec(&config).map_err(internal)?;
+    let events: Vec<String> = crate::server::notifications::EVENT_KINDS
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    match state()?
+        .store
+        .create_target(profile.id, config.kind().as_str(), &name, &bytes, &events)
+        .await
+    {
+        Ok(_) => Ok(None),
+        Err(gameshelf_store::StoreError::Invalid(msg)) => Ok(Some(msg)),
+        Err(e) => Err(internal(e)),
+    }
+}
+
+#[server]
+pub async fn toggle_target_event(target: String, event: String, on: bool) -> Result<(), ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    let Some(t) = st
+        .store
+        .list_targets(profile.id)
+        .await
+        .map_err(internal)?
+        .into_iter()
+        .find(|t| t.id == target)
+    else {
+        return Err(ServerFnError::new("not found"));
+    };
+    let mut events = t.events;
+    events.retain(|e| e != &event);
+    if on && crate::server::notifications::EVENT_KINDS.contains(&event.as_str()) {
+        events.push(event);
+    }
+    st.store
+        .set_target_events(profile.id, &target, &events)
+        .await
+        .map_err(internal)
+}
+
+#[server]
+pub async fn set_target_enabled(target: String, enabled: bool) -> Result<(), ServerFnError> {
+    let profile = require_profile().await?;
+    state()?
+        .store
+        .set_target_enabled(profile.id, &target, enabled)
+        .await
+        .map_err(internal)
+}
+
+#[server]
+pub async fn delete_target(target: String) -> Result<(), ServerFnError> {
+    let profile = require_profile().await?;
+    state()?
+        .store
+        .delete_target(profile.id, &target)
+        .await
+        .map_err(internal)
+}
+
+/// Sends a test message (FR-036). Returns the error text when it fails.
+#[server]
+pub async fn test_target(target: String) -> Result<Option<String>, ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    Ok(crate::server::notifications::send_test(&st, profile.id, &target)
+        .await
+        .err())
+}
+
+/// Remembers the interface language of the profile, also used for notifications (FR-045).
+#[server]
+pub async fn set_language(locale: String) -> Result<(), ServerFnError> {
+    let profile = require_profile().await?;
+    let pref = gameshelf_core::LocalePref::parse(&locale).unwrap_or_default();
+    state()?
+        .store
+        .set_locale(profile.id, pref)
+        .await
+        .map_err(internal)
+}

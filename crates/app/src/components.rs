@@ -1,6 +1,10 @@
 //! Reusable components: header, platform icons, account markers, game cards.
 
-use crate::{api::Logout, i18n::*, types::Me};
+use crate::{
+    api::{Logout, SetLanguage},
+    i18n::*,
+    types::Me,
+};
 use gameshelf_core::{
     Acquisition,
     account_status::AccountStatus,
@@ -20,12 +24,20 @@ pub fn Header(me: Me) -> impl IntoView {
             let _ = window().location().set_href("/login");
         }
     });
+    let save_language = ServerAction::<SetLanguage>::new();
     let switch = move |_| {
         let next = match i18n.get_locale() {
             Locale::en => Locale::fr,
             Locale::fr => Locale::en,
         };
         i18n.set_locale(next);
+        let code = match next {
+            Locale::en => "en",
+            Locale::fr => "fr",
+        };
+        save_language.dispatch(SetLanguage {
+            locale: code.to_string(),
+        });
     };
     view! {
         <a class="skip-link" href="#main">{t!(i18n, skip_to_content)}</a>
@@ -35,6 +47,7 @@ pub fn Header(me: Me) -> impl IntoView {
                 <A href="/">{t!(i18n, nav_library)}</A>
                 <A href="/accounts">{t!(i18n, nav_accounts)}</A>
                 <A href="/activity">{t!(i18n, nav_activity)}</A>
+                <A href="/notifications">{t!(i18n, nav_notifications)}</A>
             </nav>
             <div class="topbar-end">
                 <span class="me">{me.display_name}</span>

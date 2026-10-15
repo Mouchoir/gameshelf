@@ -119,6 +119,38 @@ impl Store {
             .collect()
     }
 
+    /// Events written by one sync run, oldest first (used to notify after the run).
+    pub async fn activity_for_run(&self, run: RunId) -> Result<Vec<ActivityEvent>> {
+        let rows = sqlx::query(
+            "SELECT id, profile_id, kind, game_id, account_id, payload, run_id, created_at, read_at
+             FROM activity_events WHERE run_id = ? ORDER BY created_at, id",
+        )
+        .bind(run.txt())
+        .fetch_all(self.pool())
+        .await?;
+        let mut out = Vec::with_capacity(rows.len());
+        for r in &rows {
+            let kind: String = r.try_get("kind")?;
+            let Some(kind) = ActivityKind::parse(&kind) else {
+                continue;
+            };
+            let payload: String = r.try_get("payload")?;
+            let read_at: Option<OffsetDateTime> = r.try_get("read_at")?;
+            out.push(ActivityEvent {
+                id: r.try_get("id")?,
+                profile_id: ProfileId::from_txt(&r.try_get::<String, _>("profile_id")?)?,
+                kind,
+                game_id: opt_id(r.try_get("game_id")?)?,
+                account_id: opt_id(r.try_get("account_id")?)?,
+                payload: serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null),
+                run_id: opt_id(r.try_get("run_id")?)?,
+                created_at: r.try_get("created_at")?,
+                read: read_at.is_some(),
+            });
+        }
+        Ok(out)
+    }
+
     pub async fn unread_activity_count(&self, profile: ProfileId) -> Result<i64> {
         Ok(sqlx::query_scalar(
             "SELECT count(*) FROM activity_events WHERE profile_id = ? AND read_at IS NULL",

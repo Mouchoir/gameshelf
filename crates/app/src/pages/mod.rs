@@ -5,12 +5,14 @@ mod activity;
 mod auth;
 mod game;
 mod library;
+mod notifications;
 
 pub use accounts::{AccountsPage, ConnectPickerPage, ConnectPlatformPage};
 pub use activity::ActivityPage;
 pub use auth::{LoginPage, SetupPage};
 pub use game::GamePage;
 pub use library::LibraryPage;
+pub use notifications::NotificationsPage;
 
 use crate::i18n::*;
 use leptos::prelude::*;

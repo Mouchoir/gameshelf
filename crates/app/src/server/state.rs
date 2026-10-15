@@ -26,6 +26,9 @@ pub struct AppState {
     pub search: Arc<RwLock<SearchIndex>>,
     pub assets_dir: PathBuf,
     pub https: bool,
+    /// Public URL used in notification links.
+    pub base_url: Option<String>,
+    pub http: reqwest::Client,
     login_attempts: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
     syncing: Arc<Mutex<HashSet<AccountId>>>,
     sync_permits: Arc<tokio::sync::Semaphore>,
@@ -59,6 +62,8 @@ impl AppState {
             search: Arc::default(),
             assets_dir,
             https,
+            base_url: None,
+            http: reqwest::Client::new(),
             login_attempts: Arc::default(),
             syncing: Arc::default(),
             sync_permits: Arc::new(tokio::sync::Semaphore::new(MAX_PARALLEL_SYNCS)),
@@ -97,6 +102,13 @@ impl AppState {
         allowed
     }
 
+    /// Sets the public URL used in notification links and the HTTP client used to send them.
+    pub fn with_notifications(mut self, base_url: Option<String>, http: reqwest::Client) -> Self {
+        self.base_url = base_url;
+        self.http = http;
+        self
+    }
+
     /// When the next scheduled sync of every account runs.
     pub fn next_scheduled(&self) -> Option<time::OffsetDateTime> {
         self.next_scheduled.read().ok().and_then(|g| *g)
@@ -126,7 +138,10 @@ impl AppState {
         tokio::spawn(async move {
             let _permit = state.sync_permits.clone().acquire_owned().await;
             match state.syncer.run_account(account, trigger).await {
-                Ok(outcome) => tracing::info!(%account, ?outcome, "sync finished"),
+                Ok(outcome) => {
+                    tracing::info!(%account, ?outcome, "sync finished");
+                    super::notifications::after_run(&state, account, &outcome).await;
+                }
                 Err(e) => tracing::error!(%account, error = %e, "sync failed"),
             }
             state.rebuild_search().await;

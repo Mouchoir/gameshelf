@@ -64,6 +64,10 @@ async fn main() {
         assets_dir,
         cfg.https(),
     );
+    let state = state.with_notifications(
+        cfg.base_url.as_ref().map(|u| u.to_string()),
+        gameshelf_connectors::http::client(),
+    );
     state.rebuild_search().await;
     spawn_housekeeping(store.clone());
     match schedule::Schedule::parse(&cfg.sync_schedule, cfg.time_zone.as_deref()) {

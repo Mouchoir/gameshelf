@@ -5,6 +5,7 @@ pub mod activity;
 pub mod catalog;
 pub mod credentials;
 pub mod enrichment;
+pub mod notify;
 pub mod ownership;
 pub mod prefs;
 pub mod profiles;

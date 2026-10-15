@@ -80,6 +80,7 @@ pub fn spawn(state: AppState, schedule: Schedule) {
             tracing::info!(next = %next, "next scheduled sync");
             tokio::time::sleep(wait).await;
             queue(&state, RunTrigger::Schedule, false).await;
+            gameshelf_app::server::notifications::daily_reminders(&state).await;
             // Never fire twice for the same occurrence.
             tokio::time::sleep(Duration::from_secs(1)).await;
         }

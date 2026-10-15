@@ -60,7 +60,7 @@ async fn connect_then_sync_imports_and_records_activity() {
         .await
         .expect("run");
     assert!(
-        matches!(outcome, RunOutcome::Imported(ref r) if r.added_games.len() == 1),
+        matches!(outcome, RunOutcome::Imported { ref report, .. } if report.added_games.len() == 1),
         "{outcome:?}"
     );
 

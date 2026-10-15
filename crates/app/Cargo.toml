@@ -28,6 +28,8 @@ axum = { workspace = true, optional = true }
 gameshelf-store = { workspace = true, optional = true }
 gameshelf-sync = { workspace = true, optional = true }
 gameshelf-connectors = { workspace = true, optional = true }
+gameshelf-notify = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tower-sessions = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
@@ -50,6 +52,8 @@ ssr = [
     "dep:gameshelf-store",
     "dep:gameshelf-sync",
     "dep:gameshelf-connectors",
+    "dep:gameshelf-notify",
+    "dep:reqwest",
     "dep:tokio",
     "dep:tower-sessions",
     "dep:tracing",
