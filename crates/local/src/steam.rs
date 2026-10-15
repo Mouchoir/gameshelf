@@ -1,13 +1,15 @@
 //! `steam-local`: installed games from the library manifests, and per-account playtime from each account's
-//! `localconfig.vdf`. Login names in `loginusers.vdf` are never read; only the public persona name is.
+//! `localconfig.vdf`. Names and app types come from Steam's app cache (`appcache/appinfo.vdf`) when it is
+//! readable, so the server rarely has to look them up. Login names in `loginusers.vdf` are never read; only the
+//! public persona name is.
 
-use crate::{LocalError, LocalSource, ScanOptions, existing, finish, home, unix, vdf};
+use crate::{LocalError, LocalSource, ScanOptions, appinfo, existing, finish, home, unix, vdf};
 use gameshelf_core::{
     ProductKind,
     agent::{Report, ReportAccount, ReportItem},
 };
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet, HashMap},
     path::{Path, PathBuf},
 };
 
@@ -21,6 +23,9 @@ const RUNTIME_APPS: &[u64] = &[
 const RUNTIME_PREFIXES: &[&str] = &["Proton ", "Steam Linux Runtime", "Steamworks Common"];
 /// Software that is not a game but is worth listing.
 const TOOL_APPS: &[u64] = &[250_820];
+/// App types in Steam's app cache that are not worth listing: demos, playtests (`beta`), tools and client
+/// configuration.
+const SKIPPED_TYPES: &[&str] = &["demo", "beta", "tool", "config"];
 
 #[derive(Clone, Debug, Default)]
 pub struct Steam {
@@ -106,6 +111,23 @@ fn read(roots: &[PathBuf], opts: &ScanOptions) -> Result<Vec<Report>, LocalError
             merge(target, item);
         }
     }
+    let ids = accounts
+        .values()
+        .flat_map(|a| a.items.keys())
+        .chain(machine.keys())
+        .filter_map(|id| id.parse().ok())
+        .collect();
+    let cache = app_cache(roots, ids);
+    for items in accounts
+        .values_mut()
+        .map(|a| &mut a.items)
+        .chain(std::iter::once(&mut machine))
+    {
+        items.retain(|_, item| {
+            let app = item.platform_game_id.parse().ok().and_then(|id| cache.get(&id));
+            app.is_none_or(|app| describe(item, app))
+        });
+    }
     let accounts = accounts
         .into_iter()
         .filter(|(_, a)| !a.items.is_empty())
@@ -141,6 +163,61 @@ fn merge(items: &mut BTreeMap<String, ReportItem>, new: ReportItem) {
             }
         }
     }
+}
+
+/// Names and app types of the given apps from each Steam folder's app cache. A missing, unknown or damaged cache
+/// leaves the apps it does not describe untitled, for the server to name.
+fn app_cache(roots: &[PathBuf], mut ids: BTreeSet<u64>) -> HashMap<u64, appinfo::App> {
+    let mut found = HashMap::new();
+    for root in roots {
+        if ids.is_empty() {
+            break;
+        }
+        let path = root.join("appcache").join("appinfo.vdf");
+        if !path.is_file() {
+            continue;
+        }
+        match appinfo::read(&path, &ids) {
+            Ok(apps) => {
+                ids.retain(|id| !apps.contains_key(id));
+                found.extend(apps);
+            }
+            Err(e) => {
+                tracing::warn!(file = %path.display(), error = %e, "skipping the Steam app cache");
+            }
+        }
+    }
+    found
+}
+
+/// Completes an item from the app cache: the cached name when the item has none, and the kind from the app
+/// type. `false` when the app is not worth listing (a demo, a tool, a runtime).
+fn describe(item: &mut ReportItem, app: &appinfo::App) -> bool {
+    if app.name.as_deref().is_some_and(is_runtime) {
+        return false;
+    }
+    let tool = item
+        .platform_game_id
+        .parse()
+        .is_ok_and(|id: u64| TOOL_APPS.contains(&id));
+    if !tool {
+        match app.app_type.as_deref() {
+            None => {}
+            Some("game") => item.kind = ProductKind::Game,
+            Some("dlc" | "music") => item.kind = ProductKind::Dlc,
+            Some("application") => item.kind = ProductKind::Tool,
+            Some(t) if SKIPPED_TYPES.contains(&t) => return false,
+            Some(_) => item.kind = ProductKind::Unknown,
+        }
+    }
+    if item.title.is_none() {
+        item.title = app.name.clone();
+    }
+    true
+}
+
+fn is_runtime(name: &str) -> bool {
+    RUNTIME_PREFIXES.iter().any(|p| name.starts_with(p))
 }
 
 fn read_vdf(path: &Path) -> Option<vdf::Obj> {
@@ -267,8 +344,7 @@ struct Manifest {
 
 impl Manifest {
     fn item(&self, opts: &ScanOptions) -> Option<ReportItem> {
-        let name = self.name.as_deref().unwrap_or_default();
-        if RUNTIME_APPS.contains(&self.app_id) || RUNTIME_PREFIXES.iter().any(|p| name.starts_with(p)) {
+        if RUNTIME_APPS.contains(&self.app_id) || self.name.as_deref().is_some_and(is_runtime) {
             return None;
         }
         Some(ReportItem {
