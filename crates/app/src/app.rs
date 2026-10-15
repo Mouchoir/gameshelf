@@ -1,10 +1,16 @@
-//! Application shell and router.
+//! Application shell, router and authentication gate.
 
+use crate::{
+    api::get_auth_state,
+    i18n::*,
+    pages,
+    types::{AuthState, Me},
+};
 use leptos::prelude::*;
 use leptos_meta::{MetaTags, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
-    StaticSegment,
-    components::{Route, Router, Routes},
+    components::{Outlet, ParentRoute, Redirect, Route, Router, Routes},
+    path,
 };
 
 /// The HTML document rendered by the server around the application.
@@ -16,6 +22,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <meta name="color-scheme" content="light dark"/>
+                <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
                 <AutoReload options=options.clone()/>
                 <HydrationScripts options/>
                 <MetaTags/>
@@ -31,40 +38,59 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
 #[component]
 pub fn App() -> impl IntoView {
     provide_meta_context();
+    let auth = Resource::new(|| (), |_| get_auth_state());
+    provide_context(auth);
 
     view! {
         <Stylesheet id="leptos" href="/pkg/gameshelf.css"/>
         <Title text="gameshelf"/>
-        <a class="skip-link" href="#main">"Skip to content"</a>
-        <Router>
-            <main id="main">
-                <Routes fallback=NotFound>
-                    <Route path=StaticSegment("") view=Home/>
+        <I18nContextProvider>
+            <Router>
+                <Routes fallback=|| view! { <pages::NotFound/> }>
+                    <Route path=path!("/setup") view=pages::SetupPage/>
+                    <Route path=path!("/login") view=pages::LoginPage/>
+                    <ParentRoute path=path!("") view=Protected>
+                        <Route path=path!("") view=pages::LibraryPage/>
+                        <Route path=path!("/games/:id") view=pages::GamePage/>
+                        <Route path=path!("/accounts") view=pages::AccountsPage/>
+                        <Route path=path!("/accounts/connect") view=pages::ConnectPickerPage/>
+                        <Route path=path!("/accounts/connect/:platform") view=pages::ConnectPlatformPage/>
+                        <Route path=path!("/activity") view=pages::ActivityPage/>
+                    </ParentRoute>
                 </Routes>
-            </main>
-        </Router>
+            </Router>
+        </I18nContextProvider>
+    }
+}
+
+/// The auth resource provided by [`App`].
+pub type AuthResource = Resource<Result<AuthState, ServerFnError>>;
+
+/// Renders its routes only for a signed-in profile; otherwise sends the visitor to setup or sign-in.
+#[component]
+fn Protected() -> impl IntoView {
+    let auth = expect_context::<AuthResource>();
+    let i18n = use_i18n();
+    view! {
+        <Suspense fallback=move || view! { <p class="loading">{t!(i18n, loading)}</p> }>
+            {move || Suspend::new(async move {
+                match auth.await {
+                    Ok(AuthState { needs_setup: true, .. }) => view! { <Redirect path="/setup"/> }.into_any(),
+                    Ok(AuthState { me: Some(me), .. }) => view! { <SignedIn me/> }.into_any(),
+                    _ => view! { <Redirect path="/login"/> }.into_any(),
+                }
+            })}
+        </Suspense>
     }
 }
 
 #[component]
-fn Home() -> impl IntoView {
+fn SignedIn(me: Me) -> impl IntoView {
+    provide_context(me.clone());
     view! {
-        <h1>"gameshelf"</h1>
-        <p>"Your games, every launcher, every account."</p>
-    }
-}
-
-/// Shown for unknown routes and for games the viewer may not see (SC-011).
-#[component]
-pub fn NotFound() -> impl IntoView {
-    #[cfg(feature = "ssr")]
-    {
-        if let Some(resp) = use_context::<leptos_axum::ResponseOptions>() {
-            resp.set_status(axum::http::StatusCode::NOT_FOUND);
-        }
-    }
-    view! {
-        <h1>"Not found"</h1>
-        <p>"This page does not exist."</p>
+        <crate::components::Header me/>
+        <main id="main">
+            <Outlet/>
+        </main>
     }
 }

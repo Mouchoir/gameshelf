@@ -225,6 +225,6 @@ async fn an_account_held_by_another_profile_is_refused() {
         .connect(other, "steam", payload("acct-a"), None)
         .await
         .expect("db")
-        .unwrap_err();
+        .expect_err("must fail");
     assert_eq!(err, gameshelf_sync::ConnectError::Taken("Player One".into()));
 }

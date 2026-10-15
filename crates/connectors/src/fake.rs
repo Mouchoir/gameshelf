@@ -110,7 +110,7 @@ impl FakeConnector {
         let items = SAMPLE_TITLES
             .iter()
             .enumerate()
-            .filter(|(i, _)| (u32::try_from(*i).unwrap_or(0) + seed) % 3 != 0)
+            .filter(|(i, _)| !(u32::try_from(*i).unwrap_or(0) + seed).is_multiple_of(3))
             .map(|(i, title)| {
                 item(
                     platform,

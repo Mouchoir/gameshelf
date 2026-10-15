@@ -90,7 +90,10 @@ async fn validate_reports_unknown_custom_names() {
         fixture("resolve_vanity_missing.json"),
     )
     .await;
-    let err = steam.validate(&cx, &cred("nobody-here")).await.unwrap_err();
+    let err = steam
+        .validate(&cx, &cred("nobody-here"))
+        .await
+        .expect_err("must fail");
     assert!(matches!(err, ConnectorError::AuthInvalid(_)), "{err:?}");
 }
 
@@ -104,7 +107,7 @@ async fn validate_reports_a_refused_key() {
         serde_json::json!({}),
     )
     .await;
-    let err = steam.validate(&cx, &cred(STEAM_ID)).await.unwrap_err();
+    let err = steam.validate(&cx, &cred(STEAM_ID)).await.expect_err("must fail");
     assert!(matches!(err, ConnectorError::AuthInvalid(_)), "{err:?}");
 }
 
@@ -156,7 +159,10 @@ async fn library_of_a_private_profile_explains_what_to_do() {
         fixture("owned_games_private.json"),
     )
     .await;
-    let err = steam.library(&cx, &account(), &cred(STEAM_ID)).await.unwrap_err();
+    let err = steam
+        .library(&cx, &account(), &cred(STEAM_ID))
+        .await
+        .expect_err("must fail");
     match err {
         ConnectorError::Permanent(msg) => assert!(msg.contains("own")),
         other => panic!("expected Permanent, got {other:?}"),
@@ -213,7 +219,10 @@ async fn expired_key_is_an_auth_error() {
         serde_json::json!({}),
     )
     .await;
-    let err = steam.library(&cx, &account(), &cred(STEAM_ID)).await.unwrap_err();
+    let err = steam
+        .library(&cx, &account(), &cred(STEAM_ID))
+        .await
+        .expect_err("must fail");
     assert!(err.is_auth());
 }
 

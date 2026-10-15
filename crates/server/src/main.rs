@@ -2,51 +2,104 @@
 
 mod api;
 mod config;
+mod origin;
 
-use axum::{Router, routing::get};
-use gameshelf_app::{App, shell};
+use axum::{
+    Router, body::Body, extract::State, http::Request, middleware, response::IntoResponse, routing::get,
+};
+use gameshelf_app::{App, server::AppState, shell};
+use gameshelf_connectors::{Registry, fake::FakeConnector};
+use gameshelf_metadata::{ArtworkCache, Igdb};
+use gameshelf_store::{SqliteSessionStore, Store};
+use gameshelf_sync::{Importer, Syncer};
 use leptos::prelude::*;
-use leptos_axum::{LeptosRoutes, generate_route_list};
+use leptos_axum::{LeptosRoutes, generate_route_list, handle_server_fns_with_context};
+use std::{sync::Arc, time::Duration};
+use tower_sessions::{Expiry, SessionManagerLayer, cookie::SameSite};
 use tracing_subscriber::{EnvFilter, fmt};
 
 #[tokio::main]
 async fn main() {
     let cfg = match config::Config::load() {
         Ok(cfg) => cfg,
-        Err(e) => {
-            eprintln!("gameshelf: {e}");
-            std::process::exit(2);
-        }
+        Err(e) => fatal(&e.to_string()),
     };
     init_tracing(&cfg);
 
     let conf = match get_configuration(None) {
         Ok(conf) => conf,
-        Err(e) => {
-            eprintln!("gameshelf: cannot read the web configuration: {e}");
-            std::process::exit(2);
-        }
+        Err(e) => fatal(&format!("cannot read the web configuration: {e}")),
     };
     let leptos_options = conf.leptos_options;
     let addr = cfg.bind.unwrap_or(leptos_options.site_addr);
-    let routes = generate_route_list(App);
 
+    let store = match Store::open(&cfg.data_dir.join("gameshelf.db"), &cfg.secret_key).await {
+        Ok(s) => s,
+        Err(e) => fatal(&format!("cannot open the database: {e}")),
+    };
+    if let Ok(n) = store.fail_interrupted_runs().await
+        && n > 0
+    {
+        tracing::warn!(runs = n, "closed sync runs interrupted by a restart");
+    }
+
+    let http = gameshelf_connectors::http::client();
+    let igdb = match (cfg.igdb_client_id.clone(), cfg.igdb_client_secret.clone()) {
+        (Some(id), Some(secret)) => Some(Igdb::new(http.clone(), id, secret)),
+        _ => None,
+    };
+    let assets_dir = cfg.data_dir.join("assets");
+    let artwork = ArtworkCache::new(assets_dir.clone(), http);
+    let mut registry = Registry::builtin();
+    if cfg.dev_fake_connector {
+        tracing::warn!("development fake connector enabled for the steam platform");
+        registry.register(Arc::new(FakeConnector::new("steam")));
+    }
+    let syncer = Syncer::new(Importer::new(store.clone(), igdb, Some(artwork)), registry);
+    let state = AppState::new(
+        leptos_options.clone(),
+        store.clone(),
+        syncer,
+        assets_dir,
+        cfg.https(),
+    );
+    state.rebuild_search().await;
+    spawn_housekeeping(store.clone());
+
+    let sessions = SessionManagerLayer::new(SqliteSessionStore::new(store.clone()))
+        .with_name("gameshelf_session")
+        .with_secure(cfg.https())
+        .with_http_only(true)
+        .with_same_site(SameSite::Lax)
+        .with_expiry(Expiry::OnInactivity(time::Duration::days(30)));
+    let origin_policy = origin::Policy::new(cfg.base_url.clone());
+
+    let routes = generate_route_list(App);
     let app = Router::new()
         .route("/healthz", get(api::health::healthz))
         .route("/readyz", get(api::health::readyz))
-        .leptos_routes(&leptos_options, routes, {
-            let leptos_options = leptos_options.clone();
-            move || shell(leptos_options.clone())
-        })
-        .fallback(leptos_axum::file_and_error_handler(shell))
-        .with_state(leptos_options);
+        .route("/assets/{sha256}", get(api::assets::asset))
+        .route("/api/{*fn_name}", get(server_fn_handler).post(server_fn_handler))
+        .leptos_routes_with_context(
+            &state,
+            routes,
+            {
+                let state = state.clone();
+                move || provide_context(state.clone())
+            },
+            {
+                let options = leptos_options.clone();
+                move || shell(options.clone())
+            },
+        )
+        .fallback(leptos_axum::file_and_error_handler::<AppState, _>(shell))
+        .layer(sessions)
+        .layer(middleware::from_fn_with_state(origin_policy, origin::check))
+        .with_state(state);
 
     let listener = match tokio::net::TcpListener::bind(&addr).await {
         Ok(l) => l,
-        Err(e) => {
-            eprintln!("gameshelf: cannot listen on {addr}: {e}");
-            std::process::exit(2);
-        }
+        Err(e) => fatal(&format!("cannot listen on {addr}: {e}")),
     };
     tracing::info!(%addr, "gameshelf listening");
     if let Err(e) = axum::serve(listener, app.into_make_service())
@@ -55,6 +108,32 @@ async fn main() {
     {
         tracing::error!(error = %e, "server stopped with an error");
     }
+}
+
+async fn server_fn_handler(State(state): State<AppState>, req: Request<Body>) -> impl IntoResponse {
+    handle_server_fns_with_context(move || provide_context(state.clone()), req).await
+}
+
+/// Hourly cleanup of expired sessions and old sync runs.
+fn spawn_housekeeping(store: Store) {
+    tokio::spawn(async move {
+        let sessions = SqliteSessionStore::new(store.clone());
+        let mut tick = tokio::time::interval(Duration::from_secs(3600));
+        loop {
+            tick.tick().await;
+            if let Err(e) = sessions.purge_expired().await {
+                tracing::warn!(error = %e, "session purge failed");
+            }
+            if let Err(e) = store.purge_old_runs().await {
+                tracing::warn!(error = %e, "run purge failed");
+            }
+        }
+    });
+}
+
+fn fatal(msg: &str) -> ! {
+    eprintln!("gameshelf: {msg}");
+    std::process::exit(2);
 }
 
 fn init_tracing(cfg: &config::Config) {

@@ -331,7 +331,7 @@ mod tests {
                 role: Role::Member,
             })
             .await
-            .unwrap_err();
+            .expect_err("must fail");
         assert!(matches!(err, StoreError::ProfileExists));
     }
 

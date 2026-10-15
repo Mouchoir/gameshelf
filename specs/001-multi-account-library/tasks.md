@@ -32,14 +32,14 @@ Cargo workspace at the repository root; crates under `crates/`; end-to-end tests
 
 **Purpose**: workspace, toolchain and quality gates
 
-- [ ] T001 Create the workspace manifest `Cargo.toml` with members `crates/*`, edition 2024, `rust-version = "1.85"`, shared `[workspace.dependencies]` (versions from research.md section 5) and `[workspace.lints]` (`unsafe_code = "forbid"`, clippy `all` warn)
-- [ ] T002 [P] Add `rust-toolchain.toml` (stable, components rustfmt and clippy, target wasm32-unknown-unknown), `rustfmt.toml` and `.gitattributes` (`* text=auto eol=lf`)
-- [ ] T003 [P] Create empty library crates with `lib.rs` and `Cargo.toml`: `crates/core`, `crates/store`, `crates/connectors`, `crates/metadata`, `crates/notify`, `crates/sync`
-- [ ] T004 Create the Leptos crates `crates/app` (lib, features `ssr` and `hydrate`), `crates/frontend` (cdylib, hydrate entry) and `crates/server` (bin `gameshelf`) and the `[[workspace.metadata.leptos]]` block in `Cargo.toml` (site root `target/site`, style file `crates/app/style/main.css`, assets `crates/app/public`)
-- [ ] T005 [P] Add `deny.toml` allowing only AGPL-3.0-compatible licenses (MIT, Apache-2.0, BSD-2/3, ISC, Zlib, MPL-2.0, Unicode-3.0, GPL-3.0, AGPL-3.0, CC0-1.0) and denying known advisories
-- [ ] T006 [P] Add `.github/workflows/ci.yml`: fmt check, clippy `-D warnings`, nextest, cargo deny, gitleaks secret scan, locale key parity check, on push and pull request
-- [ ] T007 [P] Add `docker/Dockerfile` (cargo-chef planner and builder stages, cargo-leptos build, distroless runtime with `/data` volume and non-root user) and `docker/compose.example.yml` copied from contracts/configuration.md with placeholders only
-- [ ] T008 [P] Add `README.md` (what it is, status, quick start pointing to quickstart.md, license) with no personal data
+- [X] T001 Create the workspace manifest `Cargo.toml` with members `crates/*`, edition 2024, `rust-version = "1.85"`, shared `[workspace.dependencies]` (versions from research.md section 5) and `[workspace.lints]` (`unsafe_code = "forbid"`, clippy `all` warn)
+- [X] T002 [P] Add `rust-toolchain.toml` (stable, components rustfmt and clippy, target wasm32-unknown-unknown), `rustfmt.toml` and `.gitattributes` (`* text=auto eol=lf`)
+- [X] T003 [P] Create empty library crates with `lib.rs` and `Cargo.toml`: `crates/core`, `crates/store`, `crates/connectors`, `crates/metadata`, `crates/notify`, `crates/sync`
+- [X] T004 Create the Leptos crates `crates/app` (lib, features `ssr` and `hydrate`), `crates/frontend` (cdylib, hydrate entry) and `crates/server` (bin `gameshelf`) and the `[[workspace.metadata.leptos]]` block in `Cargo.toml` (site root `target/site`, style file `crates/app/style/main.css`, assets `crates/app/public`)
+- [X] T005 [P] Add `deny.toml` allowing only AGPL-3.0-compatible licenses (MIT, Apache-2.0, BSD-2/3, ISC, Zlib, MPL-2.0, Unicode-3.0, GPL-3.0, AGPL-3.0, CC0-1.0) and denying known advisories
+- [X] T006 [P] Add `.github/workflows/ci.yml`: fmt check, clippy `-D warnings`, nextest, cargo deny, gitleaks secret scan, locale key parity check, on push and pull request
+- [X] T007 [P] Add `docker/Dockerfile` (cargo-chef planner and builder stages, cargo-leptos build, distroless runtime with `/data` volume and non-root user) and `docker/compose.example.yml` copied from contracts/configuration.md with placeholders only
+- [X] T008 [P] Add `README.md` (what it is, status, quick start pointing to quickstart.md, license) with no personal data
 
 ---
 
@@ -51,53 +51,53 @@ Cargo workspace at the repository root; crates under `crates/`; end-to-end tests
 
 ### Core domain
 
-- [ ] T009 [P] Define ids (UUIDv7 newtypes), `PlatformKey`, `Acquisition` (`purchase`, `free_claim`, `subscription`, `free_to_play`, `family_shared`, `manual`), `ProductKind` (`game`, `dlc`, `bundle`, `tool`, `unknown`) and `AccountStatus` (`pending`, `active`, `needs_reconnect`, `degraded`, `disabled`) in `crates/core/src/model.rs`
-- [ ] T010 [P] Implement the platform registry (key, display name key, tier, capabilities, icon id) for every platform of spec "Platform coverage" plus `manual` in `crates/core/src/platform.rs`
-- [ ] T011 [P] Implement title normalization (deunicode, lowercase, punctuation removal, leading articles "the", "a", "an", "le", "la", "les", "l'" stripped for `sort_title`) with unit tests in `crates/core/src/normalize.rs`
-- [ ] T012 Implement the account status state machine of data-model.md (transitions and `degraded` after 3 failed runs) with unit tests in `crates/core/src/account_status.rs`
+- [X] T009 [P] Define ids (UUIDv7 newtypes), `PlatformKey`, `Acquisition` (`purchase`, `free_claim`, `subscription`, `free_to_play`, `family_shared`, `manual`), `ProductKind` (`game`, `dlc`, `bundle`, `tool`, `unknown`) and `AccountStatus` (`pending`, `active`, `needs_reconnect`, `degraded`, `disabled`) in `crates/core/src/model.rs`
+- [X] T010 [P] Implement the platform registry (key, display name key, tier, capabilities, icon id) for every platform of spec "Platform coverage" plus `manual` in `crates/core/src/platform.rs`
+- [X] T011 [P] Implement title normalization (deunicode, lowercase, punctuation removal, leading articles "the", "a", "an", "le", "la", "les", "l'" stripped for `sort_title`) with unit tests in `crates/core/src/normalize.rs`
+- [X] T012 Implement the account status state machine of data-model.md (transitions and `degraded` after 3 failed runs) with unit tests in `crates/core/src/account_status.rs`
 
 ### Configuration and secrets
 
-- [ ] T013 Implement configuration loading with figment (environment variables and optional TOML from `GAMESHELF_CONFIG`) exactly as listed in contracts/configuration.md, refusing to start without a valid 32-byte secret key and printing how to generate one, in `crates/server/src/config.rs`
-- [ ] T014 [P] Implement sealing and unsealing with XChaCha20-Poly1305 (24-byte nonce, `key_id` stored with ciphertext, `secrecy` wrappers, no `Debug`/`Display` of plaintext) with round-trip and wrong-key tests in `crates/store/src/seal.rs`
+- [X] T013 Implement configuration loading with figment (environment variables and optional TOML from `GAMESHELF_CONFIG`) exactly as listed in contracts/configuration.md, refusing to start without a valid 32-byte secret key and printing how to generate one, in `crates/server/src/config.rs`
+- [X] T014 [P] Implement sealing and unsealing with XChaCha20-Poly1305 (24-byte nonce, `key_id` stored with ciphertext, `secrecy` wrappers, no `Debug`/`Display` of plaintext) with round-trip and wrong-key tests in `crates/store/src/seal.rs`
 
 ### Storage
 
-- [ ] T015 Write the initial migration `crates/store/migrations/0001_init.sql` creating every table of data-model.md with its constraints (unique `(platform, external_account_id)` on accounts, unique `(account_id, product_id)` on ownerships, unique `(platform, platform_game_id)` on products, unique `(source, external_id)` on game external ids, foreign keys with cascade deletes as specified)
-- [ ] T016 Implement the database layer (sqlx SQLite pool, WAL, foreign keys on, busy timeout, embedded migrations at start-up) in `crates/store/src/db.rs`
-- [ ] T017 [P] Implement profile repository (create with Argon2id hash, `username` unique 3-32 chars `[a-z0-9._-]`, `display_name` 1-64 chars, at least one active admin must remain) in `crates/store/src/repo/profiles.rs`
-- [ ] T018 [P] Implement preference repository (`profile_id`, `key`, JSON value) in `crates/store/src/repo/prefs.rs`
-- [ ] T019 [P] Implement account and credential repositories (credential payload only accessible through `seal.rs`, never serialized to the web layer) in `crates/store/src/repo/accounts.rs` and `crates/store/src/repo/credentials.rs`
-- [ ] T020 [P] Implement catalog repositories for games, game external ids, platform products and assets in `crates/store/src/repo/catalog.rs`
-- [ ] T021 [P] Implement ownership repository with the snapshot diff apply of contracts/connector.md section 5 (single transaction, `unavailable_since` set only for complete listings, cleared on reappearance) and tests in `crates/store/src/repo/ownership.rs`
-- [ ] T022 [P] Implement sync run, job and activity event repositories (run retention 90 days) in `crates/store/src/repo/runs.rs` and `crates/store/src/repo/activity.rs`
-- [ ] T023 Implement the custom tower-sessions store on sqlx 0.9 (create, save, load, delete, hourly purge of expired rows) in `crates/store/src/session_store.rs`
+- [X] T015 Write the initial migration `crates/store/migrations/0001_init.sql` creating every table of data-model.md with its constraints (unique `(platform, external_account_id)` on accounts, unique `(account_id, product_id)` on ownerships, unique `(platform, platform_game_id)` on products, unique `(source, external_id)` on game external ids, foreign keys with cascade deletes as specified)
+- [X] T016 Implement the database layer (sqlx SQLite pool, WAL, foreign keys on, busy timeout, embedded migrations at start-up) in `crates/store/src/db.rs`
+- [X] T017 [P] Implement profile repository (create with Argon2id hash, `username` unique 3-32 chars `[a-z0-9._-]`, `display_name` 1-64 chars, at least one active admin must remain) in `crates/store/src/repo/profiles.rs`
+- [X] T018 [P] Implement preference repository (`profile_id`, `key`, JSON value) in `crates/store/src/repo/prefs.rs`
+- [X] T019 [P] Implement account and credential repositories (credential payload only accessible through `seal.rs`, never serialized to the web layer) in `crates/store/src/repo/accounts.rs` and `crates/store/src/repo/credentials.rs`
+- [X] T020 [P] Implement catalog repositories for games, game external ids, platform products and assets in `crates/store/src/repo/catalog.rs`
+- [X] T021 [P] Implement ownership repository with the snapshot diff apply of contracts/connector.md section 5 (single transaction, `unavailable_since` set only for complete listings, cleared on reappearance) and tests in `crates/store/src/repo/ownership.rs`
+- [X] T022 [P] Implement sync run, job and activity event repositories (run retention 90 days) in `crates/store/src/repo/runs.rs` and `crates/store/src/repo/activity.rs`
+- [X] T023 Implement the custom tower-sessions store on sqlx 0.9 (create, save, load, delete, hourly purge of expired rows) in `crates/store/src/session_store.rs`
 
 ### Visibility choke point
 
-- [ ] T024 Implement `visible_ownerships(viewer)` as the only store entry point that returns ownerships to the web layer: own accounts now, sharing rules and exclusions added in US6; expose `count`, `facets`, `page` and `by_game` variants that aggregate after filtering, in `crates/store/src/repo/visibility.rs`
+- [X] T024 Implement `visible_ownerships(viewer)` as the only store entry point that returns ownerships to the web layer: own accounts now, sharing rules and exclusions added in US6; expose `count`, `facets`, `page` and `by_game` variants that aggregate after filtering, in `crates/store/src/repo/visibility.rs`
 
 ### Connector contract
 
-- [ ] T025 [P] Define `ConnectorDescriptor`, `AuthMethod`, `LoginStart`, `CodeCapture`, `Tier`, `Capabilities` and `RateLimit` in `crates/connectors/src/descriptor.rs` per contracts/connector.md section 1
-- [ ] T026 [P] Define `LibrarySnapshot`, `LibraryItem`, `PlaytimeItem`, `AchievementItem`, `EnrichmentItem`, `AccountIdentity` and `ConnectorError` (with redaction rules) in `crates/connectors/src/model.rs` and `crates/connectors/src/error.rs`
-- [ ] T027 Define the `Connector` trait and the `Context` (shared reqwest client with rustls, per-platform governor limiter, backon retry with jitter for `Transient` and `RateLimited`, cancellation, redacting logger) in `crates/connectors/src/lib.rs` and `crates/connectors/src/http.rs`
-- [ ] T028 [P] Implement the development-only fake connector serving synthetic libraries (enabled by `GAMESHELF_DEV_FAKE_CONNECTOR`, compiled only with the `dev-fake` feature) in `crates/connectors/src/fake.rs`
-- [ ] T029 [P] Add the fixture hygiene test that fails on fixtures containing real-looking identifiers or secrets (SteamID64 in the real range, emails, JWT-like tokens, Windows user paths) in `crates/connectors/tests/fixture_hygiene.rs`
+- [X] T025 [P] Define `ConnectorDescriptor`, `AuthMethod`, `LoginStart`, `CodeCapture`, `Tier`, `Capabilities` and `RateLimit` in `crates/connectors/src/descriptor.rs` per contracts/connector.md section 1
+- [X] T026 [P] Define `LibrarySnapshot`, `LibraryItem`, `PlaytimeItem`, `AchievementItem`, `EnrichmentItem`, `AccountIdentity` and `ConnectorError` (with redaction rules) in `crates/connectors/src/model.rs` and `crates/connectors/src/error.rs`
+- [X] T027 Define the `Connector` trait and the `Context` (shared reqwest client with rustls, per-platform governor limiter, backon retry with jitter for `Transient` and `RateLimited`, cancellation, redacting logger) in `crates/connectors/src/lib.rs` and `crates/connectors/src/http.rs`
+- [X] T028 [P] Implement the development-only fake connector serving synthetic libraries (enabled by `GAMESHELF_DEV_FAKE_CONNECTOR`, compiled only with the `dev-fake` feature) in `crates/connectors/src/fake.rs`
+- [X] T029 [P] Add the fixture hygiene test that fails on fixtures containing real-looking identifiers or secrets (SteamID64 in the real range, emails, JWT-like tokens, Windows user paths) in `crates/connectors/tests/fixture_hygiene.rs`
 
 ### Server and authentication
 
-- [ ] T030 Implement application state, Axum router, tracing setup (`GAMESHELF_LOG`, `GAMESHELF_LOG_FORMAT`), `GET /healthz` and `GET /readyz` in `crates/server/src/main.rs`, `crates/server/src/state.rs` and `crates/server/src/api/health.rs`
-- [ ] T031 Implement password sign-in, sign-out and session rotation (cookie `gameshelf_session`, `HttpOnly`, `SameSite=Lax`, `Secure` when `GAMESHELF_BASE_URL` is HTTPS, 30-day idle timeout) in `crates/server/src/auth/session.rs` and `crates/server/src/auth/password.rs`
-- [ ] T032 [P] Implement sign-in rate limiting (10 attempts per 15 minutes per address and per username) in `crates/server/src/auth/rate_limit.rs`
-- [ ] T033 [P] Implement the origin check for state-changing requests (Origin or Referer must match the base URL or a local address, else 403) in `crates/server/src/auth/origin.rs`
-- [ ] T034 Implement the first-run `/setup` flow (only while no profile exists: create the first admin) in `crates/app/src/routes/setup.rs` and its server function
+- [X] T030 Implement application state, Axum router, tracing setup (`GAMESHELF_LOG`, `GAMESHELF_LOG_FORMAT`), `GET /healthz` and `GET /readyz` in `crates/server/src/main.rs`, `crates/server/src/state.rs` and `crates/server/src/api/health.rs`
+- [X] T031 Implement password sign-in, sign-out and session rotation (cookie `gameshelf_session`, `HttpOnly`, `SameSite=Lax`, `Secure` when `GAMESHELF_BASE_URL` is HTTPS, 30-day idle timeout) in `crates/server/src/auth/session.rs` and `crates/server/src/auth/password.rs`
+- [X] T032 [P] Implement sign-in rate limiting (10 attempts per 15 minutes per address and per username) in `crates/server/src/auth/rate_limit.rs`
+- [X] T033 [P] Implement the origin check for state-changing requests (Origin or Referer must match the base URL or a local address, else 403) in `crates/server/src/auth/origin.rs`
+- [X] T034 Implement the first-run `/setup` flow (only while no profile exists: create the first admin) in `crates/app/src/routes/setup.rs` and its server function
 
 ### UI shell and localization
 
-- [ ] T035 Set up leptos_i18n with `crates/app/locales/en.json` (reference) and `crates/app/locales/fr.json`, locale from profile setting, browser language or manual override (FR-045), and the CI key-parity check script in `crates/app/build.rs` or a test
-- [ ] T036 Build the app shell (layout, navigation, sign-in page, light and dark theme tokens, focus styles, skip link) in `crates/app/src/app.rs`, `crates/app/src/routes/login.rs` and `crates/app/style/main.css`
-- [ ] T037 [P] Add platform logo assets from licensed sources (Simple Icons CC0 where present, Font Awesome Free brands otherwise, neutral generic glyph when neither exists) with a `crates/app/public/icons/NOTICE.md` attribution file
+- [X] T035 Set up leptos_i18n with `crates/app/locales/en.json` (reference) and `crates/app/locales/fr.json`, locale from profile setting, browser language or manual override (FR-045), and the CI key-parity check script in `crates/app/build.rs` or a test
+- [X] T036 Build the app shell (layout, navigation, sign-in page, light and dark theme tokens, focus styles, skip link) in `crates/app/src/app.rs`, `crates/app/src/routes/login.rs` and `crates/app/style/main.css`
+- [X] T037 [P] Add platform logo assets from licensed sources (Simple Icons CC0 where present, Font Awesome Free brands otherwise, neutral generic glyph when neither exists) with a `crates/app/public/icons/NOTICE.md` attribution file
 
 **Checkpoint**: an instance starts, the first admin signs in, migrations run, CI is green.
 
@@ -112,28 +112,28 @@ search and a game detail page.
 
 ### Tests for User Story 1
 
-- [ ] T038 [P] [US1] Record and anonymize Steam fixtures (owned games public and private, family shared apps, player summary, error and rate-limit responses) in `crates/connectors/tests/fixtures/steam/`
-- [ ] T039 [P] [US1] Write Steam connector contract tests (full listing, private profile with own key, family-shared items marked `family_shared`, expired key, `429` with retry, unknown fields, empty library) in `crates/connectors/tests/steam.rs`
-- [ ] T040 [P] [US1] Write matching unit tests (same appid on two accounts gives one game with two ownerships; Steam and Epic copies with an IGDB cross id give one game; editions grouped; remasters separate; DLC attached to parent) in `crates/core/tests/matching.rs`
-- [ ] T041 [P] [US1] Write search unit tests (partial, accent-insensitive, typo-tolerant, explicit no-match) in `crates/core/tests/search.rs`
+- [X] T038 [P] [US1] Record and anonymize Steam fixtures (owned games public and private, family shared apps, player summary, error and rate-limit responses) in `crates/connectors/tests/fixtures/steam/`
+- [X] T039 [P] [US1] Write Steam connector contract tests (full listing, private profile with own key, family-shared items marked `family_shared`, expired key, `429` with retry, unknown fields, empty library) in `crates/connectors/tests/steam.rs`
+- [X] T040 [P] [US1] Write matching unit tests (same appid on two accounts gives one game with two ownerships; Steam and Epic copies with an IGDB cross id give one game; editions grouped; remasters separate; DLC attached to parent) in `crates/core/tests/matching.rs`
+- [X] T041 [P] [US1] Write search unit tests (partial, accent-insensitive, typo-tolerant, explicit no-match) in `crates/core/tests/search.rs`
 - [ ] T042 [P] [US1] Write Playwright journeys V1 and V2 against the fake connector in `e2e/tests/us1-own-which-account.spec.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T043 [US1] Implement the Steam connector: `validate` (GetPlayerSummaries, account identity), `library` (GetOwnedGames with `include_appinfo`, `include_played_free_games`, `include_free_sub`, `skip_unvetted_apps=false`, `include_family_licenses`, playtime and `rtime_last_played`), family-shared detection, free-to-play detection, Steam CDN artwork URLs, in `crates/connectors/src/steam/mod.rs` and `crates/connectors/src/steam/api.rs`
-- [ ] T044 [US1] Implement the matching engine (platform ids, then IGDB external games, then Wikidata, then normalized title plus year plus platform; edition grouping; DLC parenting; match decisions applied last) in `crates/core/src/matching.rs`
-- [ ] T045 [P] [US1] Implement the IGDB client (Twitch client credentials with token cache, `external_games` batch lookup, covers `t_cover_big_2x`, 4 requests/s) in `crates/metadata/src/igdb.rs`
+- [X] T043 [US1] Implement the Steam connector: `validate` (GetPlayerSummaries, account identity), `library` (GetOwnedGames with `include_appinfo`, `include_played_free_games`, `include_free_sub`, `skip_unvetted_apps=false`, `include_family_licenses`, playtime and `rtime_last_played`), family-shared detection, free-to-play detection, Steam CDN artwork URLs, in `crates/connectors/src/steam/mod.rs` and `crates/connectors/src/steam/api.rs`
+- [X] T044 [US1] Implement the matching engine (platform ids, then IGDB external games, then Wikidata, then normalized title plus year plus platform; edition grouping; DLC parenting; match decisions applied last) in `crates/core/src/matching.rs`
+- [X] T045 [P] [US1] Implement the IGDB client (Twitch client credentials with token cache, `external_games` batch lookup, covers `t_cover_big_2x`, 4 requests/s) in `crates/metadata/src/igdb.rs`
 - [ ] T046 [P] [US1] Implement the Wikidata SPARQL fallback lookup by store id in `crates/metadata/src/wikidata.rs`
 - [ ] T047 [P] [US1] Implement the optional SteamGridDB client (lookup by Steam, Origin, Epic, Battle.net and Ubisoft ids, 600x900 grids without nsfw or humor) in `crates/metadata/src/steamgriddb.rs`
-- [ ] T048 [US1] Implement the artwork cache (download once, sha256 content addressing under `<data>/assets/`, `grid` and `thumb` variants with `image`, pinned choice per game, generated title cover when nothing is found) in `crates/metadata/src/artwork.rs`
-- [ ] T049 [US1] Implement the import pipeline (connector snapshot, product upsert, ownership diff, matching, metadata and artwork resolution) as a reusable function in `crates/sync/src/apply.rs`
-- [ ] T050 [US1] Implement the in-memory search index (normalized keys, nucleo-matcher scoring, rebuilt after imports and match decisions, filtered by `visible_ownerships`) in `crates/core/src/search.rs` and its holder in `crates/server/src/state.rs`
-- [ ] T051 [US1] Implement the platform picker listing every registry platform with its connection method, retrievable data and stability tier (FR-002), and the Steam connection page (API key guidance, per-account key for private profiles, validation before saving, duplicate account refusal naming the holding profile, editable label defaulting to display name) in `crates/app/src/routes/connect.rs`
-- [ ] T052 [US1] Implement the accounts list page with "Import now", last import result, label editing and disconnect (deletes the credential, optionally the account's ownership data, FR-004) in `crates/app/src/routes/accounts.rs`
-- [ ] T053 [P] [US1] Build components `GameCard`, `PlatformBadges` and `AccountMarker` (one account vs "N accounts") in `crates/app/src/components/game_card.rs`
-- [ ] T054 [US1] Build the library page with the cover grid and search-as-you-type (server function debounced at 120 ms, explicit "not in your library" state) in `crates/app/src/routes/library.rs` and `crates/app/src/components/search_box.rs`
+- [X] T048 [US1] Implement the artwork cache (download once, sha256 content addressing under `<data>/assets/`, `grid` and `thumb` variants with `image`, pinned choice per game, generated title cover when nothing is found) in `crates/metadata/src/artwork.rs`
+- [X] T049 [US1] Implement the import pipeline (connector snapshot, product upsert, ownership diff, matching, metadata and artwork resolution) as a reusable function in `crates/sync/src/apply.rs`
+- [X] T050 [US1] Implement the in-memory search index (normalized keys, nucleo-matcher scoring, rebuilt after imports and match decisions, filtered by `visible_ownerships`) in `crates/core/src/search.rs` and its holder in `crates/server/src/state.rs`
+- [X] T051 [US1] Implement the platform picker listing every registry platform with its connection method, retrievable data and stability tier (FR-002), and the Steam connection page (API key guidance, per-account key for private profiles, validation before saving, duplicate account refusal naming the holding profile, editable label defaulting to display name) in `crates/app/src/routes/connect.rs`
+- [X] T052 [US1] Implement the accounts list page with "Import now", last import result, label editing and disconnect (deletes the credential, optionally the account's ownership data, FR-004) in `crates/app/src/routes/accounts.rs`
+- [X] T053 [P] [US1] Build components `GameCard`, `PlatformBadges` and `AccountMarker` (one account vs "N accounts") in `crates/app/src/components/game_card.rs`
+- [X] T054 [US1] Build the library page with the cover grid and search-as-you-type (server function debounced at 120 ms, explicit "not in your library" state) in `crates/app/src/routes/library.rs` and `crates/app/src/components/search_box.rs`
 - [ ] T055 [US1] Build the game detail page listing every visible ownership by platform and account with acquisition, edition, playtime, last played and "not provided by this platform" placeholders, plus merge and split actions stored as match decisions (FR-009); unknown or invisible ids return the not-found page in `crates/app/src/routes/game.rs`
-- [ ] T056 [US1] Add `GET /assets/{sha256}` with immutable cache headers in `crates/server/src/api/assets.rs`
+- [X] T056 [US1] Add `GET /assets/{sha256}` with immutable cache headers in `crates/server/src/api/assets.rs`
 
 **Checkpoint**: V1 and V2 pass with Steam accounts and with the fake connector.
 
@@ -162,15 +162,15 @@ search and a game detail page.
 
 **Independent Test**: quickstart V4, V5 and V6.
 
-- [ ] T063 [P] [US3] Write the end-to-end sync test with the fake connector (added game appears with activity entry; failing account isolated; incomplete listing removes nothing) in `crates/sync/tests/e2e_sync.rs`
+- [X] T063 [P] [US3] Write the end-to-end sync test with the fake connector (added game appears with activity entry; failing account isolated; incomplete listing removes nothing) in `crates/sync/tests/e2e_sync.rs`
 - [ ] T064 [P] [US3] Write Playwright journeys V4 to V6 in `e2e/tests/us3-sync.spec.ts`
 - [ ] T065 [US3] Implement the job runner (jobs table, `locked_until` leases, global concurrency limit, per-platform semaphore, cancellation on shutdown) in `crates/sync/src/runner.rs`
 - [ ] T066 [US3] Implement the scheduler (croner, instance default `GAMESHELF_SYNC_SCHEDULE` in `TZ`, per-account override, startup catch-up of missed runs) in `crates/sync/src/scheduler.rs`
 - [ ] T067 [US3] Implement credential refresh before each run, persistence of rotated credentials, expiry detection within 7 days and status transitions in `crates/sync/src/health.rs`
-- [ ] T068 [US3] Record sync runs (scope, trigger, status, counts, redacted error of at most 500 chars, `complete_listing`) and emit activity events (`game_added`, `game_unavailable`, `account_needs_reconnect`, `account_degraded`, `sync_failed`) in `crates/sync/src/apply.rs`
-- [ ] T069 [US3] Write daily playtime snapshots when values change (FR-018) in `crates/sync/src/playtime.rs`
+- [X] T068 [US3] Record sync runs (scope, trigger, status, counts, redacted error of at most 500 chars, `complete_listing`) and emit activity events (`game_added`, `game_unavailable`, `account_needs_reconnect`, `account_degraded`, `sync_failed`) in `crates/sync/src/apply.rs`
+- [X] T069 [US3] Write daily playtime snapshots when values change (FR-018) in `crates/sync/src/playtime.rs`
 - [ ] T070 [US3] Add "Sync now" for one account, one platform and everything, plus run history and health badges with platform-specific reconnect steps on `crates/app/src/routes/accounts.rs`
-- [ ] T071 [US3] Build the activity feed page in `crates/app/src/routes/activity.rs`
+- [X] T071 [US3] Build the activity feed page in `crates/app/src/routes/activity.rs`
 - [ ] T072 [US3] Show unavailable ownerships hidden by default with their date, and a filter to reveal them, in `crates/app/src/components/filters.rs` and `crates/app/src/routes/game.rs`
 
 **Checkpoint**: V4 to V6 pass; library refreshes daily without action.
@@ -183,10 +183,10 @@ search and a game detail page.
 
 **Independent Test**: quickstart V7.
 
-- [ ] T073 [P] [US4] Extend Steam fixtures and contract tests with achievements (`GetPlayerAchievements`, `GetSchemaForGame`) and Steam level (`GetSteamLevel`) in `crates/connectors/tests/steam.rs`
-- [ ] T074 [US4] Implement Steam `achievements` (only for games with playtime, batched, rate limited) and `enrich` (platform level) in `crates/connectors/src/steam/mod.rs`
-- [ ] T075 [US4] Implement the enrichment repository (unique `(account_id, game_id, provider, key)`, `refreshed_at`) in `crates/store/src/repo/enrichment.rs`
-- [ ] T076 [US4] Show per-account playtime, last played, achievements progress, install state, enrichment values with source and refresh date, and the DLC list in `crates/app/src/routes/game.rs`
+- [X] T073 [P] [US4] Extend Steam fixtures and contract tests with achievements (`GetPlayerAchievements`, `GetSchemaForGame`) and Steam level (`GetSteamLevel`) in `crates/connectors/tests/steam.rs`
+- [X] T074 [US4] Implement Steam `achievements` (only for games with playtime, batched, rate limited) and `enrich` (platform level) in `crates/connectors/src/steam/mod.rs`
+- [X] T075 [US4] Implement the enrichment repository (unique `(account_id, game_id, provider, key)`, `refreshed_at`) in `crates/store/src/repo/enrichment.rs`
+- [X] T076 [US4] Show per-account playtime, last played, achievements progress, install state, enrichment values with source and refresh date, and the DLC list in `crates/app/src/routes/game.rs`
 - [ ] T077 [P] [US4] Write Playwright journey V7 in `e2e/tests/us4-detail.spec.ts`
 
 **Checkpoint**: V7 passes.

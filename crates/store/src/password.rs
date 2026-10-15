@@ -71,7 +71,9 @@ mod tests {
 
     #[tokio::test]
     async fn short_passwords_are_refused() {
-        let err = hash(&SecretString::from("short".to_string())).await.unwrap_err();
+        let err = hash(&SecretString::from("short".to_string()))
+            .await
+            .expect_err("must fail");
         assert!(matches!(err, StoreError::Invalid(_)));
     }
 

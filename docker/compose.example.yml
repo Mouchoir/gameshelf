@@ -1,0 +1,26 @@
+# Example deployment. Replace every placeholder; never commit your own key or URLs.
+# Generate the key once: openssl rand -base64 32 > gameshelf_key.txt
+services:
+  gameshelf:
+    image: ghcr.io/<owner>/gameshelf:<version>
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      GAMESHELF_BASE_URL: "https://gameshelf.example.com"
+      GAMESHELF_SECRET_KEY_FILE: /run/secrets/gameshelf_key
+      TZ: "Europe/Paris"
+      # Optional metadata providers (your own keys):
+      # GAMESHELF_IGDB_CLIENT_ID: "<twitch client id>"
+      # GAMESHELF_IGDB_CLIENT_SECRET: "<twitch client secret>"
+    secrets:
+      - gameshelf_key
+    volumes:
+      - gameshelf-data:/data
+
+secrets:
+  gameshelf_key:
+    file: ./gameshelf_key.txt
+
+volumes:
+  gameshelf-data:

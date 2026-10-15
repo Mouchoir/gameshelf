@@ -97,8 +97,9 @@ fn comma_list<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<String>, D::Error> 
     })
 }
 
-/// Validated configuration.
+/// Validated configuration. Some fields are consumed by later milestones (proxy sign-in, Xbox, metrics).
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Config {
     pub secret_key: SecretBox<[u8; SECRET_KEY_LEN]>,
     pub data_dir: PathBuf,
@@ -206,14 +207,14 @@ mod tests {
 
     #[test]
     fn missing_key_is_refused_with_guidance() {
-        let err = Config::from_figment(figment(&[]), None).unwrap_err();
+        let err = Config::from_figment(figment(&[]), None).expect_err("must fail");
         assert!(matches!(err, ConfigError::MissingSecretKey));
         assert!(err.to_string().contains("openssl rand -base64 32"));
     }
 
     #[test]
     fn short_key_is_refused() {
-        let err = Config::from_figment(figment(&[("secret_key", "c2hvcnQ=")]), None).unwrap_err();
+        let err = Config::from_figment(figment(&[("secret_key", "c2hvcnQ=")]), None).expect_err("must fail");
         assert!(matches!(err, ConfigError::BadSecretKey(_)));
     }
 

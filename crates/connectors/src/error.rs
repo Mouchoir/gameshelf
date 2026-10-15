@@ -61,8 +61,6 @@ impl From<reqwest::Error> for ConnectorError {
         let e = e.without_url();
         if e.is_decode() {
             ConnectorError::parse(e.to_string())
-        } else if e.is_timeout() || e.is_connect() || e.is_request() || e.is_body() {
-            ConnectorError::Transient(e.to_string())
         } else {
             ConnectorError::Transient(e.to_string())
         }

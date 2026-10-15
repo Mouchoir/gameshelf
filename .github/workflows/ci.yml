@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "[0-9][0-9][0-9]-*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-deny
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy (server side)
+        run: cargo clippy --workspace --exclude gameshelf-frontend --all-targets -- -D warnings
+      - name: Clippy (browser side)
+        run: cargo clippy -p gameshelf-frontend --target wasm32-unknown-unknown -- -D warnings
+      - name: Tests
+        run: cargo nextest run --workspace --exclude gameshelf-frontend
+      - name: Licenses and advisories
+        run: cargo deny check
+      - name: Locale parity
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          en = set(json.load(open("crates/app/locales/en.json", encoding="utf-8")))
+          fr = set(json.load(open("crates/app/locales/fr.json", encoding="utf-8")))
+          missing = sorted(en ^ fr)
+          if missing:
+              print("locale keys differ:", missing)
+              sys.exit(1)
+          EOF
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

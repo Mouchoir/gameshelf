@@ -74,7 +74,7 @@ croner = { version = "4" }
 nucleo-matcher = { version = "0.3" }
 deunicode = { version = "1" }
 keyvalues-parser = { version = "0.2" }
-url = { version = "2" }
+url = { version = "2", features = ["serde"] }
 
 # Tests
 insta = { version = "1", features = ["json"] }
@@ -90,8 +90,7 @@ panic = "abort"
 
 [[workspace.metadata.leptos]]
 name = "gameshelf"
-bin-package = "gameshelf-server"
-bin-target = "gameshelf"
+bin-package = "gameshelf"
 lib-package = "gameshelf-frontend"
 site-root = "target/site"
 site-pkg-dir = "pkg"
@@ -100,7 +99,6 @@ assets-dir = "crates/app/public"
 site-addr = "127.0.0.1:3000"
 reload-port = 3001
 browserquery = "defaults"
-env = "DEV"
 bin-features = []
 bin-default-features = true
 lib-features = []

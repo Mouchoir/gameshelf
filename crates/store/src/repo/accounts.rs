@@ -307,7 +307,7 @@ pub(crate) mod tests {
                 status: AccountStatus::Active,
             })
             .await
-            .unwrap_err();
+            .expect_err("must fail");
         assert!(matches!(err, StoreError::Invalid(_)));
     }
 

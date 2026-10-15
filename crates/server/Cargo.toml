@@ -1,5 +1,5 @@
 [package]
-name = "gameshelf-server"
+name = "gameshelf"
 description = "The gameshelf server: web UI, sync engine, agent API."
 version.workspace = true
 edition.workspace = true
@@ -18,6 +18,9 @@ path = "src/main.rs"
 gameshelf-app = { workspace = true, features = ["ssr"] }
 gameshelf-core = { workspace = true }
 gameshelf-store = { workspace = true }
+gameshelf-sync = { workspace = true }
+gameshelf-connectors = { workspace = true }
+gameshelf-metadata = { workspace = true }
 leptos = { workspace = true, features = ["ssr"] }
 leptos_axum = { workspace = true }
 axum = { workspace = true }

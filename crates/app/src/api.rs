@@ -1,0 +1,389 @@
+//! Server functions. Their bodies only compile on the server (`ssr`); the browser gets HTTP stubs.
+
+use crate::types::*;
+use gameshelf_core::{AccountId, GameId, view::LibraryPage};
+use leptos::prelude::*;
+use leptos::server_fn::codec::Json;
+use std::collections::HashMap;
+
+#[cfg(feature = "ssr")]
+use crate::server::auth::{require_profile, state};
+
+#[cfg(feature = "ssr")]
+fn internal(e: impl std::fmt::Display) -> ServerFnError {
+    tracing::error!(error = %e, "server function failed");
+    ServerFnError::new("internal error")
+}
+
+#[cfg(feature = "ssr")]
+fn me(p: &gameshelf_store::Profile) -> Me {
+    Me {
+        id: p.id,
+        username: p.username.clone(),
+        display_name: p.display_name.clone(),
+        role: p.role,
+        locale: p.locale,
+    }
+}
+
+/// Who is signed in, and whether the instance still needs its first admin.
+#[server]
+pub async fn get_auth_state() -> Result<AuthState, ServerFnError> {
+    let st = state()?;
+    let needs_setup = st.store.count_profiles().await.map_err(internal)? == 0;
+    let profile = crate::server::auth::current_profile().await?;
+    Ok(AuthState {
+        me: profile.as_ref().map(me),
+        needs_setup,
+    })
+}
+
+/// Creates the first admin profile and signs it in. Refused once any profile exists.
+#[server]
+pub async fn setup_instance(
+    username: String,
+    display_name: String,
+    password: String,
+) -> Result<(), ServerFnError> {
+    let st = state()?;
+    if st.store.count_profiles().await.map_err(internal)? > 0 {
+        return Err(ServerFnError::new("already set up"));
+    }
+    let password = secrecy::SecretString::from(password);
+    let profile = st
+        .store
+        .create_profile(gameshelf_store::NewProfile {
+            username: username.trim(),
+            display_name: &display_name,
+            email: None,
+            password: &password,
+            role: gameshelf_core::Role::Admin,
+        })
+        .await
+        .map_err(|e| match e {
+            gameshelf_store::StoreError::Invalid(msg) => ServerFnError::new(msg),
+            other => internal(other),
+        })?;
+    crate::server::auth::sign_in(&profile).await?;
+    leptos_axum::redirect("/");
+    Ok(())
+}
+
+/// Signs in. Returns false for a wrong password or when too many attempts were made.
+#[server]
+pub async fn login(username: String, password: String) -> Result<bool, ServerFnError> {
+    let st = state()?;
+    let username = username.trim().to_lowercase();
+    let client = crate::server::auth::client_key().await;
+    if !st.allow_login_attempt(&[format!("ip:{client}"), format!("user:{username}")]) {
+        return Ok(false);
+    }
+    let password = secrecy::SecretString::from(password);
+    match st
+        .store
+        .verify_login(&username, &password)
+        .await
+        .map_err(internal)?
+    {
+        Some(profile) => {
+            crate::server::auth::sign_in(&profile).await?;
+            leptos_axum::redirect("/");
+            Ok(true)
+        }
+        None => Ok(false),
+    }
+}
+
+#[server]
+pub async fn logout() -> Result<(), ServerFnError> {
+    crate::server::auth::sign_out().await?;
+    leptos_axum::redirect("/login");
+    Ok(())
+}
+
+/// Every platform of the registry with its tier and connection method (FR-002).
+#[server]
+pub async fn platforms() -> Result<Vec<PlatformView>, ServerFnError> {
+    use gameshelf_connectors::AuthMethod;
+    require_profile().await?;
+    let st = state()?;
+    let registry = st.syncer.registry();
+    Ok(gameshelf_core::platform::PLATFORMS
+        .iter()
+        .filter(|p| p.key != "manual")
+        .map(|p| {
+            let connector = registry.get(p.key);
+            let (fields, help_url) = match connector
+                .as_ref()
+                .and_then(|c| c.descriptor().auth.first().copied())
+            {
+                Some(AuthMethod::ApiKey { fields, help_url }) => (
+                    fields
+                        .iter()
+                        .map(|f| FieldView {
+                            name: f.name.into(),
+                            label_key: f.label_key.into(),
+                            secret: f.secret,
+                        })
+                        .collect(),
+                    Some(help_url.to_string()),
+                ),
+                _ => (Vec::new(), None),
+            };
+            PlatformView {
+                key: p.key.into(),
+                name: p.name.into(),
+                tier: p.tier,
+                icon: p.icon.into(),
+                connectable: connector.is_some(),
+                agent_only: !p.remote && p.local,
+                fields,
+                help_url,
+            }
+        })
+        .collect())
+}
+
+/// Validates the fields with the platform, connects the account and starts its first import.
+#[server(input = Json)]
+pub async fn connect_with_key(
+    platform: String,
+    fields: HashMap<String, String>,
+    label: String,
+) -> Result<ConnectResult, ServerFnError> {
+    use gameshelf_sync::ConnectError;
+    let profile = require_profile().await?;
+    let st = state()?;
+    let payload = gameshelf_connectors::CredentialPayload(serde_json::to_value(&fields).map_err(internal)?);
+    let label = Some(label.trim()).filter(|l| !l.is_empty());
+    match st
+        .syncer
+        .connect(profile.id, &platform, payload, label)
+        .await
+        .map_err(internal)?
+    {
+        Ok(account) => {
+            st.spawn_sync(account, gameshelf_store::RunTrigger::Manual);
+            Ok(ConnectResult::Connected(account))
+        }
+        Err(ConnectError::Rejected(e)) => Ok(ConnectResult::Rejected(e.to_string())),
+        Err(ConnectError::Taken(holder)) => Ok(ConnectResult::Taken(holder)),
+        Err(ConnectError::UnknownPlatform) => Ok(ConnectResult::Unknown),
+    }
+}
+
+/// The signed-in profile's accounts with their health.
+#[server]
+pub async fn accounts() -> Result<Vec<AccountView>, ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    let mut out = Vec::new();
+    for a in st.store.list_accounts(profile.id).await.map_err(internal)? {
+        let games = st
+            .store
+            .count_available_ownerships(a.id)
+            .await
+            .map_err(internal)?;
+        let last = st
+            .store
+            .list_runs(a.id, 1)
+            .await
+            .map_err(internal)?
+            .into_iter()
+            .next();
+        let last_error = last
+            .filter(|r| r.error_kind.is_some())
+            .and_then(|r| r.error_message);
+        out.push(AccountView {
+            id: a.id,
+            platform_name: gameshelf_core::platform::platform(&a.platform)
+                .map(|p| p.name)
+                .unwrap_or("?")
+                .to_string(),
+            platform: a.platform,
+            label: a.label,
+            display_name: a.display_name,
+            status: a.status,
+            games,
+            last_sync_at: a.last_sync_at,
+            last_error,
+            syncing: st.is_syncing(a.id),
+        });
+    }
+    Ok(out)
+}
+
+/// Starts a sync of one account (FR-020).
+#[server]
+pub async fn sync_now(account: AccountId) -> Result<bool, ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    let owned = st
+        .store
+        .get_account(account)
+        .await
+        .map_err(internal)?
+        .is_some_and(|a| a.profile_id == profile.id);
+    if !owned {
+        return Err(ServerFnError::new("not found"));
+    }
+    Ok(st.spawn_sync(account, gameshelf_store::RunTrigger::Manual))
+}
+
+/// Starts a sync of every account of the profile.
+#[server]
+pub async fn sync_all() -> Result<u32, ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    let mut started = 0;
+    for a in st.store.list_accounts(profile.id).await.map_err(internal)? {
+        if a.status.syncs() && st.spawn_sync(a.id, gameshelf_store::RunTrigger::Manual) {
+            started += 1;
+        }
+    }
+    Ok(started)
+}
+
+#[server]
+pub async fn rename_account(account: AccountId, label: String) -> Result<(), ServerFnError> {
+    let profile = require_profile().await?;
+    state()?
+        .store
+        .set_account_label(account, profile.id, &label)
+        .await
+        .map_err(internal)
+}
+
+/// Disconnects an account (FR-004).
+#[server]
+pub async fn disconnect_account(account: AccountId, delete_data: bool) -> Result<(), ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    st.store
+        .disconnect_account(account, profile.id, delete_data)
+        .await
+        .map_err(internal)?;
+    if delete_data {
+        let _ = st.store.delete_orphan_games().await;
+        st.rebuild_search().await;
+    }
+    Ok(())
+}
+
+/// The library grid, optionally narrowed by a search (FR-011 to FR-014).
+#[server(input = Json)]
+pub async fn library(req: LibraryRequest) -> Result<LibraryPage, ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    let mut query = req.query;
+    let search = req.search.trim();
+    if search.is_empty() {
+        return st.store.library(profile.id, &query).await.map_err(internal);
+    }
+    let hits = st
+        .search
+        .read()
+        .map(|idx| idx.search(search, 300))
+        .unwrap_or_default();
+    query.games = Some(hits.clone());
+    query.offset = 0;
+    query.limit = 300;
+    let mut page = st.store.library(profile.id, &query).await.map_err(internal)?;
+    // Keep the relevance order of the search.
+    let rank: HashMap<GameId, usize> = hits.iter().enumerate().map(|(i, g)| (*g, i)).collect();
+    page.games
+        .sort_by_key(|g| rank.get(&g.game_id).copied().unwrap_or(usize::MAX));
+    Ok(page)
+}
+
+/// A game with every ownership the viewer may see (FR-016). `None` when the viewer cannot see it.
+#[server]
+pub async fn fetch_game_detail(game: GameId) -> Result<Option<GameDetail>, ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    let ownerships = st
+        .store
+        .game_ownerships(profile.id, game)
+        .await
+        .map_err(internal)?;
+    let dlc_rows = st.store.dlc_of(game).await.map_err(internal)?;
+    let Some(summary) = st.store.game_summary(game).await.map_err(internal)? else {
+        return Ok(None);
+    };
+    if ownerships.is_empty() {
+        return Ok(None);
+    }
+    let mut names: HashMap<gameshelf_core::ProfileId, String> = HashMap::new();
+    let mut rows = Vec::with_capacity(ownerships.len());
+    for o in ownerships {
+        let owner_name = if o.mine {
+            None
+        } else {
+            if !names.contains_key(&o.owner_profile_id)
+                && let Some(p) = st.store.get_profile(o.owner_profile_id).await.map_err(internal)?
+            {
+                names.insert(p.id, p.display_name);
+            }
+            names.get(&o.owner_profile_id).cloned()
+        };
+        rows.push(OwnershipRow {
+            ownership: o,
+            owner_name,
+        });
+    }
+    let accounts: Vec<AccountId> = rows
+        .iter()
+        .filter(|r| r.ownership.mine)
+        .map(|r| r.ownership.account_id)
+        .collect();
+    let enrichment = st
+        .store
+        .enrichment_for(&accounts, game)
+        .await
+        .map_err(internal)?
+        .into_iter()
+        .map(|e| EnrichmentRow {
+            account_id: e.account_id,
+            key: e.key,
+            value: match e.value {
+                serde_json::Value::String(s) => s,
+                other => other.to_string(),
+            },
+            refreshed_at: e.refreshed_at,
+        })
+        .collect();
+    Ok(Some(GameDetail {
+        summary,
+        ownerships: rows,
+        dlc: dlc_rows,
+        enrichment,
+    }))
+}
+
+/// Latest activity of the signed-in profile (FR-024).
+#[server]
+pub async fn activity() -> Result<Vec<ActivityRow>, ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    let mut out = Vec::new();
+    for e in st.store.list_activity(profile.id, 100).await.map_err(internal)? {
+        let game_title = match e.game_id {
+            Some(g) => st.store.game_summary(g).await.map_err(internal)?.map(|s| s.title),
+            None => None,
+        };
+        let account = match e.account_id {
+            Some(a) => st.store.get_account(a).await.map_err(internal)?,
+            None => None,
+        };
+        out.push(ActivityRow {
+            kind: e.kind.as_str().to_string(),
+            game_id: e.game_id,
+            game_title,
+            account_label: account.as_ref().map(|a| a.label.clone()),
+            platform: account.map(|a| a.platform),
+            created_at: e.created_at,
+        });
+    }
+    let _ = st.store.mark_activity_read(profile.id).await;
+    Ok(out)
+}

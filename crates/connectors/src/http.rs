@@ -172,7 +172,7 @@ mod tests {
             .await;
         let cx = Context::for_tests();
         let url = server.uri();
-        let err = cx.send(|| cx.http.get(&url)).await.unwrap_err();
+        let err = cx.send(|| cx.http.get(&url)).await.expect_err("must fail");
         assert_eq!(err, ConnectorError::AuthExpired);
     }
 
@@ -185,7 +185,7 @@ mod tests {
             .await;
         let cx = Context::for_tests();
         let url = server.uri();
-        let err = cx.send(|| cx.http.get(&url)).await.unwrap_err();
+        let err = cx.send(|| cx.http.get(&url)).await.expect_err("must fail");
         assert!(matches!(err, ConnectorError::RateLimited { .. }));
     }
 
@@ -195,7 +195,7 @@ mod tests {
         let err = cx
             .send(|| cx.http.get("http://127.0.0.1:9/never?key=SECRET-KEY"))
             .await
-            .unwrap_err();
+            .expect_err("must fail");
         assert!(!err.to_string().contains("SECRET-KEY"));
     }
 }
