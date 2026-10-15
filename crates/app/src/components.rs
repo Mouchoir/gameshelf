@@ -18,6 +18,7 @@ use leptos_router::components::A;
 #[component]
 pub fn Header(me: Me) -> impl IntoView {
     let i18n = use_i18n();
+    let is_admin = me.role == gameshelf_core::Role::Admin;
     let logout = ServerAction::<Logout>::new();
     Effect::new(move |_| {
         if let Some(Ok(())) = logout.value().get() {
@@ -48,6 +49,8 @@ pub fn Header(me: Me) -> impl IntoView {
                 <A href="/accounts">{t!(i18n, nav_accounts)}</A>
                 <A href="/activity">{t!(i18n, nav_activity)}</A>
                 <A href="/notifications">{t!(i18n, nav_notifications)}</A>
+                <A href="/sharing">{t!(i18n, nav_sharing)}</A>
+                {is_admin.then(|| view! { <A href="/admin">{t!(i18n, nav_admin)}</A> })}
             </nav>
             <div class="topbar-end">
                 <span class="me">{me.display_name}</span>
@@ -89,7 +92,7 @@ pub fn AccountMarker(count: u32) -> impl IntoView {
 
 /// One tile of the library grid.
 #[component]
-pub fn GameCard(game: LibraryGame) -> impl IntoView {
+pub fn GameCard(game: LibraryGame, #[prop(optional)] owners: Vec<String>) -> impl IntoView {
     let href = format!("/games/{}", game.game_id);
     let title = game.title.clone();
     let cover = match game.cover {
@@ -110,6 +113,7 @@ pub fn GameCard(game: LibraryGame) -> impl IntoView {
                     <AccountMarker count=game.account_count/>
                     {subscription_only.then(|| view! { <SubscriptionChip/> })}
                     {game.acquisitions.contains(&Acquisition::FreeToPlay).then(|| view! { <F2pChip/> })}
+                    {(!owners.is_empty()).then(|| view! { <span class="owner">{owners.join(", ")}</span> })}
                 </span>
             </div>
         </a>

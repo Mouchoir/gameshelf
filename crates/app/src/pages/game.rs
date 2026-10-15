@@ -1,7 +1,7 @@
 //! Game detail: every ownership by platform and account, playtime, achievements, DLC (US1, US4).
 
 use crate::{
-    api::fetch_game_detail,
+    api::{SetExclusion, fetch_game_detail},
     components::{AcquisitionLabel, PlatformIcon},
     format,
     i18n::*,
@@ -41,6 +41,10 @@ fn GameView(detail: GameDetail) -> impl IntoView {
     let summary = detail.summary;
     let cover = summary.cover.clone();
     let enrichment = detail.enrichment.clone();
+    let game_id = summary.id;
+    let mine = detail.ownerships.iter().any(|o| o.ownership.mine);
+    let hidden = RwSignal::new(detail.hidden_from_family);
+    let toggle_hidden = ServerAction::<SetExclusion>::new();
     let mut by_platform: BTreeMap<String, Vec<OwnershipRow>> = BTreeMap::new();
     for row in detail.ownerships {
         by_platform
@@ -61,6 +65,15 @@ fn GameView(detail: GameDetail) -> impl IntoView {
                 <div class="game-info">
                     <h1>{summary.title.clone()}</h1>
                     {summary.release_year.map(|y| view! { <p class="muted">{y}</p> })}
+                    {mine.then(|| view! {
+                        <button type="button" class="ghost" on:click=move |_| {
+                            let next = !hidden.get_untracked();
+                            toggle_hidden.dispatch(SetExclusion { kind: "game".into(), reference: game_id.to_string(), hidden: next });
+                            hidden.set(next);
+                        }>
+                            {move || if hidden.get() { t!(i18n, game_unhide).into_any() } else { t!(i18n, game_hide).into_any() }}
+                        </button>
+                    })}
                     <h2>{t!(i18n, game_owned_on)}</h2>
                     {by_platform.into_iter().map(|(platform_key, rows)| {
                         let name = platform::platform(&platform_key).map(|p| p.name).unwrap_or("?");
@@ -107,7 +120,7 @@ fn OwnershipItem(row: OwnershipRow, values: Vec<crate::types::EnrichmentRow>) ->
         <li class="ownership" class:gone=gone>
             <div class="ownership-head">
                 <strong>{o.account_label.clone()}</strong>
-                {row.owner_name.map(|n| view! { <span class="chip">{n}</span> })}
+                {row.owner_name.map(|n| view! { <span class="chip">{t!(i18n, game_owned_by, name = move || n.clone())}</span> })}
                 <span class="chip"><AcquisitionLabel acquisition=o.acquisition/></span>
                 {o.edition.clone().map(|e| view! { <span class="chip">{e}</span> })}
             </div>

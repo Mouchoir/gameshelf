@@ -10,6 +10,7 @@ pub mod ownership;
 pub mod prefs;
 pub mod profiles;
 pub mod runs;
+pub mod sharing;
 
 /// Current time in UTC, truncated to whole microseconds so values round-trip through text columns.
 pub(crate) fn now() -> time::OffsetDateTime {

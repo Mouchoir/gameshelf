@@ -1,10 +1,10 @@
 //! The library: search-as-you-type, sort, filters and the cover grid (US1, US2).
 
 use crate::{
-    api::{accounts, library},
+    api::{accounts, library, sharing_profiles},
     components::{GameCard, PlatformIcon},
     i18n::*,
-    types::LibraryRequest,
+    types::{LibraryRequest, Me},
 };
 use gameshelf_core::view::{LibraryQuery, Sort};
 use leptos::prelude::*;
@@ -25,6 +25,10 @@ pub fn LibraryPage() -> impl IntoView {
     let show_subscriptions = RwSignal::new(false);
     let show_unavailable = RwSignal::new(false);
     let limit = RwSignal::new(PAGE);
+    let only_mine = RwSignal::new(false);
+    let me = use_context::<Me>();
+    let my_id = me.map(|m| m.id);
+    let names = Resource::new(|| (), |_| sharing_profiles());
 
     let on_input = move |ev| {
         let value = event_target_value(&ev);
@@ -44,6 +48,11 @@ pub fn LibraryPage() -> impl IntoView {
         search: search.get(),
         query: LibraryQuery {
             platforms: platform.get().into_iter().collect(),
+            owners: if only_mine.get() {
+                my_id.into_iter().collect()
+            } else {
+                Vec::new()
+            },
             include_subscription_only: show_subscriptions.get(),
             include_unavailable: show_unavailable.get(),
             sort: sort.get(),
@@ -124,6 +133,15 @@ pub fn LibraryPage() -> impl IntoView {
                         }).collect_view()}
                     </Transition>
                 </div>
+                <Transition fallback=|| ()>
+                    {move || names.get().and_then(|r| r.ok()).filter(|n| !n.is_empty()).map(|_| view! {
+                        <label class="toggle">
+                            <input type="checkbox" prop:checked=move || only_mine.get()
+                                on:change=move |ev| only_mine.set(event_target_checked(&ev))/>
+                            <span>{t!(i18n, filter_only_mine)}</span>
+                        </label>
+                    })}
+                </Transition>
                 <label class="toggle">
                     <input type="checkbox" prop:checked=move || show_subscriptions.get()
                         on:change=move |ev| show_subscriptions.set(event_target_checked(&ev))/>
@@ -161,7 +179,13 @@ pub fn LibraryPage() -> impl IntoView {
                                 {if total == 1 { t!(i18n, library_count_one).into_any() } else { t!(i18n, library_count, count = move || total).into_any() }}
                             </p>
                             <div class="grid">
-                                {page.games.into_iter().map(|game| view! { <GameCard game/> }).collect_view()}
+                                {page.games.into_iter().map(|game| {
+                                    let directory = names.get().and_then(|r| r.ok()).unwrap_or_default();
+                                    let owners: Vec<String> = game.other_owners.iter()
+                                        .filter_map(|id| directory.iter().find(|(p, _)| p == id).map(|(_, n)| n.clone()))
+                                        .collect();
+                                    view! { <GameCard game owners/> }
+                                }).collect_view()}
                             </div>
                             {(shown < total && search.get_untracked().trim().is_empty()).then(|| view! {
                                 <div class="more">

@@ -94,6 +94,8 @@ pub struct EnrichmentRow {
 /// Everything the game page shows.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GameDetail {
+    /// The viewer hides this game from the profiles it shares with.
+    pub hidden_from_family: bool,
     pub summary: GameSummary,
     pub ownerships: Vec<OwnershipRow>,
     pub dlc: Vec<GameSummary>,
@@ -138,4 +140,53 @@ pub enum ConnectResult {
     Taken(String),
     Unknown,
     NoCode,
+}
+
+/// A profile as shown to administrators.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProfileAdminView {
+    pub id: ProfileId,
+    pub username: String,
+    pub display_name: String,
+    pub role: Role,
+    pub disabled: bool,
+}
+
+/// Another profile on the Sharing page.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AudienceView {
+    pub id: ProfileId,
+    pub display_name: String,
+    pub shared: bool,
+}
+
+/// A platform or account that can be hidden from shared views.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HideablePlatform {
+    pub key: String,
+    pub name: String,
+    pub hidden: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HideableAccount {
+    pub id: AccountId,
+    pub platform: String,
+    pub label: String,
+    pub hidden: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HiddenGame {
+    pub id: GameId,
+    pub title: String,
+}
+
+/// Everything the Sharing page shows.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SharingView {
+    pub others: Vec<AudienceView>,
+    pub platforms: Vec<HideablePlatform>,
+    pub accounts: Vec<HideableAccount>,
+    pub hidden_games: Vec<HiddenGame>,
 }

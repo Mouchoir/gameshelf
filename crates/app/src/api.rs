@@ -414,7 +414,19 @@ pub async fn fetch_game_detail(game: GameId) -> Result<Option<GameDetail>, Serve
             refreshed_at: e.refreshed_at,
         })
         .collect();
+    let hidden_from_family = st
+        .store
+        .list_exclusions(profile.id)
+        .await
+        .map_err(internal)?
+        .iter()
+        .any(|e| {
+            e.audience.is_none()
+                && e.kind == gameshelf_store::ExclusionKind::Game
+                && e.reference == game.to_string()
+        });
     Ok(Some(GameDetail {
+        hidden_from_family,
         summary,
         ownerships: rows,
         dlc: dlc_rows,
@@ -580,4 +592,239 @@ pub async fn set_language(locale: String) -> Result<(), ServerFnError> {
         .set_locale(profile.id, pref)
         .await
         .map_err(internal)
+}
+
+#[cfg(feature = "ssr")]
+async fn require_admin() -> Result<gameshelf_store::Profile, ServerFnError> {
+    let p = require_profile().await?;
+    if p.role != gameshelf_core::Role::Admin {
+        return Err(ServerFnError::new("not allowed"));
+    }
+    Ok(p)
+}
+
+#[cfg(feature = "ssr")]
+fn store_error(e: gameshelf_store::StoreError) -> ServerFnError {
+    use gameshelf_store::StoreError as E;
+    match e {
+        E::Invalid(msg) => ServerFnError::new(msg),
+        E::LastAdmin => ServerFnError::new("the last active administrator cannot be removed or disabled"),
+        E::ProfileExists => ServerFnError::new("a profile with this username already exists"),
+        other => internal(other),
+    }
+}
+
+/// Every profile, for administrators (FR-031). Never exposes libraries or credentials.
+#[server]
+pub async fn admin_profiles() -> Result<Vec<ProfileAdminView>, ServerFnError> {
+    require_admin().await?;
+    Ok(state()?
+        .store
+        .list_profiles()
+        .await
+        .map_err(internal)?
+        .into_iter()
+        .map(|p| ProfileAdminView {
+            id: p.id,
+            username: p.username,
+            display_name: p.display_name,
+            role: p.role,
+            disabled: p.disabled,
+        })
+        .collect())
+}
+
+#[server]
+pub async fn admin_create_profile(
+    username: String,
+    display_name: String,
+    password: String,
+    admin: Option<String>,
+) -> Result<(), ServerFnError> {
+    require_admin().await?;
+    let password = secrecy::SecretString::from(password);
+    let role = if admin.is_some() {
+        gameshelf_core::Role::Admin
+    } else {
+        gameshelf_core::Role::Member
+    };
+    state()?
+        .store
+        .create_profile(gameshelf_store::NewProfile {
+            username: username.trim(),
+            display_name: &display_name,
+            email: None,
+            password: &password,
+            role,
+        })
+        .await
+        .map(|_| ())
+        .map_err(store_error)
+}
+
+#[server]
+pub async fn admin_set_disabled(
+    profile: gameshelf_core::ProfileId,
+    disabled: bool,
+) -> Result<(), ServerFnError> {
+    require_admin().await?;
+    state()?
+        .store
+        .set_disabled(profile, disabled)
+        .await
+        .map_err(store_error)
+}
+
+#[server]
+pub async fn admin_delete_profile(profile: gameshelf_core::ProfileId) -> Result<(), ServerFnError> {
+    let me = require_admin().await?;
+    if me.id == profile {
+        return Err(ServerFnError::new("you cannot delete your own profile here"));
+    }
+    let st = state()?;
+    st.store.delete_profile(profile).await.map_err(store_error)?;
+    let _ = st.store.delete_orphan_games().await;
+    st.rebuild_search().await;
+    Ok(())
+}
+
+/// Sets a new password and signs the profile out everywhere.
+#[server]
+pub async fn admin_reset_password(
+    profile: gameshelf_core::ProfileId,
+    password: String,
+) -> Result<(), ServerFnError> {
+    require_admin().await?;
+    let password = secrecy::SecretString::from(password);
+    state()?
+        .store
+        .set_password(profile, &password)
+        .await
+        .map_err(store_error)
+}
+
+/// Sharing settings of the signed-in profile (FR-032).
+#[server]
+pub async fn sharing_settings() -> Result<SharingView, ServerFnError> {
+    use gameshelf_store::ExclusionKind;
+    let me = require_profile().await?;
+    let st = state()?;
+    let shared = st.store.shared_with(me.id).await.map_err(internal)?;
+    let others = st
+        .store
+        .list_profiles()
+        .await
+        .map_err(internal)?
+        .into_iter()
+        .filter(|p| p.id != me.id && !p.disabled)
+        .map(|p| AudienceView {
+            shared: shared.contains(&p.id),
+            id: p.id,
+            display_name: p.display_name,
+        })
+        .collect();
+    let exclusions: Vec<_> = st
+        .store
+        .list_exclusions(me.id)
+        .await
+        .map_err(internal)?
+        .into_iter()
+        .filter(|e| e.audience.is_none())
+        .collect();
+    let hidden = |kind: ExclusionKind, r: &str| exclusions.iter().any(|e| e.kind == kind && e.reference == r);
+    let accounts_list = st.store.list_accounts(me.id).await.map_err(internal)?;
+    let mut platform_keys: Vec<String> = accounts_list.iter().map(|a| a.platform.clone()).collect();
+    platform_keys.sort();
+    platform_keys.dedup();
+    let platforms = platform_keys
+        .into_iter()
+        .map(|k| HideablePlatform {
+            name: gameshelf_core::platform::platform(&k)
+                .map(|p| p.name)
+                .unwrap_or("?")
+                .to_string(),
+            hidden: hidden(ExclusionKind::Platform, &k),
+            key: k,
+        })
+        .collect();
+    let accounts = accounts_list
+        .iter()
+        .map(|a| HideableAccount {
+            id: a.id,
+            platform: a.platform.clone(),
+            label: a.label.clone(),
+            hidden: hidden(ExclusionKind::Account, &a.id.to_string()),
+        })
+        .collect();
+    let mut hidden_games = Vec::new();
+    for e in exclusions.iter().filter(|e| e.kind == ExclusionKind::Game) {
+        if let Ok(id) = e.reference.parse::<GameId>()
+            && let Some(s) = st.store.game_summary(id).await.map_err(internal)?
+        {
+            hidden_games.push(HiddenGame { id, title: s.title });
+        }
+    }
+    Ok(SharingView {
+        others,
+        platforms,
+        accounts,
+        hidden_games,
+    })
+}
+
+#[server]
+pub async fn set_sharing(audience: gameshelf_core::ProfileId, shared: bool) -> Result<(), ServerFnError> {
+    let me = require_profile().await?;
+    state()?
+        .store
+        .set_sharing(me.id, audience, shared)
+        .await
+        .map_err(store_error)
+}
+
+/// Hides (or shows again) a platform, an account or a game from every profile the viewer shares with.
+#[server]
+pub async fn set_exclusion(kind: String, reference: String, hidden: bool) -> Result<(), ServerFnError> {
+    use gameshelf_store::ExclusionKind;
+    let me = require_profile().await?;
+    let st = state()?;
+    let kind = ExclusionKind::parse(&kind).ok_or_else(|| ServerFnError::new("unknown kind"))?;
+    // Only the viewer's own accounts can be excluded; platforms and games are free-form keys.
+    if kind == ExclusionKind::Account {
+        let owned = st
+            .store
+            .list_accounts(me.id)
+            .await
+            .map_err(internal)?
+            .iter()
+            .any(|a| a.id.to_string() == reference);
+        if !owned {
+            return Err(ServerFnError::new("not found"));
+        }
+    }
+    if hidden {
+        st.store
+            .add_exclusion(me.id, None, kind, &reference)
+            .await
+            .map_err(internal)
+    } else {
+        st.store
+            .remove_exclusion(me.id, kind, &reference, None)
+            .await
+            .map_err(internal)
+    }
+}
+
+/// Names of the profiles that share with the viewer, for owner labels.
+#[server]
+pub async fn sharing_profiles() -> Result<Vec<(gameshelf_core::ProfileId, String)>, ServerFnError> {
+    let me = require_profile().await?;
+    let st = state()?;
+    let mut out = Vec::new();
+    for id in st.store.sharing_with_me(me.id).await.map_err(internal)? {
+        if let Some(p) = st.store.get_profile(id).await.map_err(internal)? {
+            out.push((p.id, p.display_name));
+        }
+    }
+    Ok(out)
 }

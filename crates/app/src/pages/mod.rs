@@ -2,17 +2,21 @@
 
 mod accounts;
 mod activity;
-mod auth;
+mod admin;
+pub(crate) mod auth;
 mod game;
 mod library;
 mod notifications;
+mod sharing;
 
 pub use accounts::{AccountsPage, ConnectPickerPage, ConnectPlatformPage};
 pub use activity::ActivityPage;
+pub use admin::AdminPage;
 pub use auth::{LoginPage, SetupPage};
 pub use game::GamePage;
 pub use library::LibraryPage;
 pub use notifications::NotificationsPage;
+pub use sharing::SharingPage;
 
 use crate::i18n::*;
 use leptos::prelude::*;

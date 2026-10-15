@@ -266,13 +266,13 @@ search and a game detail page.
 
 **Independent Test**: quickstart V10.
 
-- [ ] T110 [P] [US6] Write visibility unit and store tests covering every exclusion kind (game, platform, account; global or per audience) and aggregation after filtering in `crates/store/tests/visibility_sharing.rs`
+- [X] T110 [P] [US6] Write visibility unit and store tests covering every exclusion kind (game, platform, account; global or per audience) and aggregation after filtering in `crates/store/tests/visibility_sharing.rs`
 - [ ] T111 [P] [US6] Write the Playwright leak suite for V10 (search, filters, counts, detail, direct links, exports) in `e2e/tests/us6-sharing-leaks.spec.ts`
-- [ ] T112 [US6] Implement sharing rule and exclusion repositories (sharing off by default) in `crates/store/src/repo/sharing.rs`
-- [ ] T113 [US6] Extend `visible_ownerships` with sharing rules and exclusions applied before aggregation in `crates/store/src/repo/visibility.rs`
-- [ ] T114 [US6] Build the admin page for profiles (create, disable, delete with cascade, reset sign-in; admins never read unshared libraries or credentials) in `crates/app/src/routes/admin.rs`
-- [ ] T115 [US6] Build the Sharing page (audiences, exclusions by game, platform or account) in `crates/app/src/routes/sharing.rs`
-- [ ] T116 [US6] Attribute shared ownerships ("owned by <profile>") in cards, search and detail, own accounts listed first, in `crates/app/src/components/game_card.rs` and `crates/app/src/routes/game.rs`
+- [X] T112 [US6] Implement sharing rule and exclusion repositories (sharing off by default) in `crates/store/src/repo/sharing.rs`
+- [X] T113 [US6] Extend `visible_ownerships` with sharing rules and exclusions applied before aggregation in `crates/store/src/repo/visibility.rs`
+- [X] T114 [US6] Build the admin page for profiles (create, disable, delete with cascade, reset sign-in; admins never read unshared libraries or credentials) in `crates/app/src/routes/admin.rs`
+- [X] T115 [US6] Build the Sharing page (audiences, exclusions by game, platform or account) in `crates/app/src/routes/sharing.rs`
+- [X] T116 [US6] Attribute shared ownerships ("owned by <profile>") in cards, search and detail, own accounts listed first, in `crates/app/src/components/game_card.rs` and `crates/app/src/routes/game.rs`
 - [ ] T117 [US6] Implement trusted-proxy sign-in (`GAMESHELF_TRUSTED_PROXIES`, `GAMESHELF_PROXY_AUTH_HEADER`, mapping to existing profiles only) in `crates/server/src/auth/proxy.rs`
 
 **Checkpoint**: V10 passes with zero leaks.

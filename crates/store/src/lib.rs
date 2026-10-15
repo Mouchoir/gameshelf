@@ -25,6 +25,7 @@ pub use repo::{
     ownership::{ApplyOutcome, OwnershipSource, SnapshotItem},
     profiles::{NewProfile, Profile},
     runs::{RunCapability, RunResult, RunStatus, RunTrigger, SyncRun},
+    sharing::{Exclusion, ExclusionKind},
 };
 pub use session_store::SqliteSessionStore;
 
