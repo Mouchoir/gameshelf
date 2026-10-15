@@ -1,7 +1,7 @@
 //! Platform accounts (FR-001, FR-004).
 
 use crate::{Result, Store, StoreError, ids::TextId, repo::now};
-use gameshelf_core::{AccountId, ProfileId, account_status::AccountStatus, platform};
+use gameshelf_core::{AccountId, AgentId, ProfileId, account_status::AccountStatus, platform};
 use sqlx::Row;
 use time::OffsetDateTime;
 
@@ -20,6 +20,9 @@ pub struct Account {
     pub last_sync_at: Option<OffsetDateTime>,
     pub last_success_at: Option<OffsetDateTime>,
     pub created_at: OffsetDateTime,
+    /// Set when an agent created the account because no connected account matched; such accounts are fed
+    /// by the agent only.
+    pub agent_id: Option<AgentId>,
 }
 
 #[derive(Debug)]
@@ -34,7 +37,7 @@ pub struct NewAccount<'a> {
 }
 
 const COLUMNS: &str = "id, profile_id, platform, external_account_id, label, display_name, status, sync_enabled, \
-    schedule, consecutive_failures, last_sync_at, last_success_at, created_at";
+    schedule, consecutive_failures, last_sync_at, last_success_at, created_at, agent_id";
 
 fn from_row(row: &sqlx::sqlite::SqliteRow) -> Result<Account> {
     let status: String = row.try_get("status")?;
@@ -53,6 +56,7 @@ fn from_row(row: &sqlx::sqlite::SqliteRow) -> Result<Account> {
         last_sync_at: row.try_get("last_sync_at")?,
         last_success_at: row.try_get("last_success_at")?,
         created_at: row.try_get("created_at")?,
+        agent_id: crate::ids::opt_id(row.try_get("agent_id")?)?,
     })
 }
 
@@ -130,6 +134,30 @@ impl Store {
         .fetch_optional(self.pool())
         .await?;
         row.as_ref().map(from_row).transpose()
+    }
+
+    /// Creates an account fed by an agent: the scheduler leaves it alone because it has no credential.
+    pub async fn create_agent_account(&self, new: NewAccount<'_>, agent: AgentId) -> Result<Account> {
+        let account = self.create_account(new).await?;
+        sqlx::query("UPDATE platform_accounts SET agent_id = ?, sync_enabled = 0 WHERE id = ?")
+            .bind(agent.txt())
+            .bind(account.id.txt())
+            .execute(self.pool())
+            .await?;
+        self.get_account(account.id).await?.ok_or(StoreError::NotFound)
+    }
+
+    /// Turns an agent-created account into a regular one once the player connects it.
+    pub async fn release_from_agent(&self, id: AccountId) -> Result<()> {
+        sqlx::query(
+            "UPDATE platform_accounts SET agent_id = NULL, sync_enabled = 1, updated_at = ?
+             WHERE id = ? AND agent_id IS NOT NULL",
+        )
+        .bind(now())
+        .bind(id.txt())
+        .execute(self.pool())
+        .await?;
+        Ok(())
     }
 
     /// Accounts of one profile, by platform then label.

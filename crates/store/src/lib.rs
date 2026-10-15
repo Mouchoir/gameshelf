@@ -18,6 +18,7 @@ pub use error::StoreError;
 pub use repo::{
     accounts::{Account, NewAccount},
     activity::{ActivityEvent, ActivityKind},
+    agents::{Agent, AgentSettings, AgentStatus, NewInstall, PairedAgent},
     catalog::{GameSummary, NewProduct, Product},
     credentials::{CredentialKind, CredentialMeta, OpenedCredential},
     enrichment::EnrichmentValue,

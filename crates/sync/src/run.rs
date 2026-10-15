@@ -368,10 +368,12 @@ impl Syncer {
                     .unwrap_or_default();
                 return Ok(Err(ConnectError::Taken(holder)));
             }
-            // Reconnecting an existing account: replace its credential and reactivate it.
+            // Reconnecting an existing account (or one an agent created): replace its credential and
+            // reactivate it.
             store
                 .put_credential(existing.id, kind, &bytes, expires_at)
                 .await?;
+            store.release_from_agent(existing.id).await?;
             store
                 .set_account_status(
                     existing.id,

@@ -16,6 +16,7 @@ use time::OffsetDateTime;
 
 const API_BASE: &str = "https://api.steampowered.com";
 const CDN_BASE: &str = "https://cdn.cloudflare.steamstatic.com/steam/apps";
+const STORE_BASE: &str = "https://store.steampowered.com";
 
 /// Lowest valid SteamID64 for individual accounts.
 const STEAMID64_BASE: u64 = 76_561_197_960_265_728;
@@ -58,6 +59,7 @@ static DESCRIPTOR: std::sync::LazyLock<ConnectorDescriptor> = std::sync::LazyLoc
 pub struct SteamConnector {
     api_base: String,
     cdn_base: String,
+    store_base: String,
 }
 
 impl Default for SteamConnector {
@@ -65,6 +67,7 @@ impl Default for SteamConnector {
         Self {
             api_base: API_BASE.into(),
             cdn_base: CDN_BASE.into(),
+            store_base: STORE_BASE.into(),
         }
     }
 }
@@ -74,7 +77,14 @@ impl SteamConnector {
         Self {
             api_base: api_base.into(),
             cdn_base: cdn_base.into(),
+            store_base: STORE_BASE.into(),
         }
+    }
+
+    /// Uses another store address (tests).
+    pub fn with_store_base(mut self, store_base: impl Into<String>) -> Self {
+        self.store_base = store_base.into();
+        self
     }
 
     fn key<'a>(&self, cred: &'a CredentialPayload) -> Result<&'a str, ConnectorError> {
@@ -213,6 +223,26 @@ struct OwnedGame {
 }
 
 #[derive(Deserialize)]
+struct AppDetails {
+    #[serde(default)]
+    success: bool,
+    data: Option<AppData>,
+}
+
+#[derive(Deserialize)]
+struct AppData {
+    #[serde(rename = "type", default)]
+    kind: String,
+    name: Option<String>,
+    fullgame: Option<FullGame>,
+}
+
+#[derive(Deserialize)]
+struct FullGame {
+    appid: serde_json::Value,
+}
+
+#[derive(Deserialize)]
 struct LevelResponse {
     player_level: Option<u32>,
 }
@@ -327,6 +357,58 @@ impl Connector for SteamConnector {
             });
         }
         Ok(LibrarySnapshot { complete, items })
+    }
+
+    async fn lookup(
+        &self,
+        cx: &Context,
+        platform_game_id: &str,
+    ) -> Result<Option<LibraryItem>, ConnectorError> {
+        let Ok(appid) = platform_game_id.parse::<u64>() else {
+            return Ok(None);
+        };
+        let url = format!("{}/api/appdetails", self.store_base);
+        let resp: std::collections::HashMap<String, AppDetails> = cx
+            .json(|| {
+                cx.http
+                    .get(&url)
+                    .query(&[("appids", platform_game_id), ("filters", "basic")])
+            })
+            .await?;
+        let Some(data) = resp
+            .get(platform_game_id)
+            .filter(|d| d.success)
+            .and_then(|d| d.data.as_ref())
+        else {
+            return Ok(None);
+        };
+        let Some(title) = data.name.as_deref().map(str::trim).filter(|n| !n.is_empty()) else {
+            return Ok(None);
+        };
+        let kind = match data.kind.as_str() {
+            "game" => ProductKind::Game,
+            "dlc" | "music" => ProductKind::Dlc,
+            "application" | "tool" => ProductKind::Tool,
+            _ => return Ok(None),
+        };
+        let parent = data.fullgame.as_ref().and_then(|f| match &f.appid {
+            serde_json::Value::String(s) => Some(s.clone()),
+            serde_json::Value::Number(n) => Some(n.to_string()),
+            _ => None,
+        });
+        Ok(Some(LibraryItem {
+            platform_game_id: appid.to_string(),
+            title: title.to_string(),
+            kind,
+            parent_platform_game_id: parent.filter(|_| kind == ProductKind::Dlc),
+            edition: None,
+            acquisition: Acquisition::Purchase,
+            playtime_minutes: None,
+            last_played_at: None,
+            cross_ids: vec![(IdSource::Steam, appid.to_string())],
+            artwork: self.artwork(appid),
+            raw: serde_json::json!({ "appid": appid }),
+        }))
     }
 
     async fn achievements(

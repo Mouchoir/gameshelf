@@ -114,6 +114,30 @@ impl Store {
                 None => (None, None),
             };
             match existing.get(&item.product_id) {
+                // An agent only sees one machine and may lag behind the platform: it never changes how a game
+                // was acquired, never brings back a game the platform no longer lists, and never lowers
+                // playtime or last played.
+                Some(old) if source == OwnershipSource::Agent => {
+                    let playtime = playtime.max(old.playtime);
+                    let last_played = item.last_played_at.max(old.last_played);
+                    if playtime != old.playtime || last_played != old.last_played {
+                        out.updated += 1;
+                    }
+                    sqlx::query(
+                        "UPDATE ownerships SET last_seen_at = ?, playtime_minutes = ?, last_played_at = ? WHERE id = ?",
+                    )
+                    .bind(now)
+                    .bind(playtime)
+                    .bind(last_played)
+                    .bind(old.id.txt())
+                    .execute(&mut *tx)
+                    .await?;
+                    if let Some(minutes) = playtime
+                        && Some(minutes) != old.playtime
+                    {
+                        snapshot_playtime(&mut tx, old.id, &today, minutes).await?;
+                    }
+                }
                 Some(old) => {
                     if old.unavailable {
                         out.reappeared.push(item.product_id);

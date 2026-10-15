@@ -2,6 +2,7 @@
 
 pub mod accounts;
 pub mod activity;
+pub mod agents;
 pub mod catalog;
 pub mod credentials;
 pub mod enrichment;

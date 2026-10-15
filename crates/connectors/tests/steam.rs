@@ -270,3 +270,52 @@ async fn achievements_and_level() {
     assert_eq!(level[0].key, "platform_level");
     assert_eq!(level[0].value, serde_json::json!(27));
 }
+
+#[tokio::test]
+async fn lookup_names_apps_from_the_public_store() {
+    let server = MockServer::start().await;
+    let steam = SteamConnector::with_bases(server.uri(), "https://cdn.example.com/apps")
+        .with_store_base(server.uri());
+    let cx = Context::for_tests();
+    let reply = |id: &str, data: serde_json::Value| {
+        Mock::given(method("GET"))
+            .and(path("/api/appdetails"))
+            .and(query_param("appids", id))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({ id: data })))
+    };
+    reply(
+        "10",
+        serde_json::json!({"success": true, "data": {"type": "game", "name": "Lantern Run"}}),
+    )
+    .mount(&server)
+    .await;
+    reply(
+        "11",
+        serde_json::json!({"success": true, "data": {"type": "music", "name": "Lantern Run Soundtrack", "fullgame": {"appid": "10"}}}),
+    )
+    .mount(&server)
+    .await;
+    reply(
+        "12",
+        serde_json::json!({"success": true, "data": {"type": "demo", "name": "Lantern Run Demo"}}),
+    )
+    .mount(&server)
+    .await;
+    reply("13", serde_json::json!({"success": false}))
+        .mount(&server)
+        .await;
+
+    let game = steam.lookup(&cx, "10").await.expect("ok").expect("known");
+    assert_eq!(game.title, "Lantern Run");
+    assert_eq!(game.kind, gameshelf_core::ProductKind::Game);
+    assert!(game.artwork.cover.is_some());
+    let ost = steam.lookup(&cx, "11").await.expect("ok").expect("known");
+    assert_eq!(ost.kind, gameshelf_core::ProductKind::Dlc);
+    assert_eq!(ost.parent_platform_game_id.as_deref(), Some("10"));
+    assert!(
+        steam.lookup(&cx, "12").await.expect("ok").is_none(),
+        "demos are not listed"
+    );
+    assert!(steam.lookup(&cx, "13").await.expect("ok").is_none());
+    assert!(steam.lookup(&cx, "not-an-id").await.expect("ok").is_none());
+}

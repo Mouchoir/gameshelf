@@ -24,7 +24,11 @@ pub const SOURCES: &[(&str, &str)] = &[
 
 /// Platform of a single-platform source.
 pub fn source_platform(source: &str) -> Option<&'static str> {
-    SOURCES.iter().find(|(s, _)| *s == source).map(|(_, p)| *p).filter(|p| *p != "*")
+    SOURCES
+        .iter()
+        .find(|(s, _)| *s == source)
+        .map(|(_, p)| *p)
+        .filter(|p| *p != "*")
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -66,7 +70,18 @@ impl Default for AgentConfig {
             status: "active".into(),
             scan_hours: DEFAULT_SCAN_HOURS,
             send_install_paths: false,
-            sources: SOURCES.iter().map(|(s, _)| (s.to_string(), SourceConfig { enabled: true, paths: Vec::new() })).collect(),
+            sources: SOURCES
+                .iter()
+                .map(|(s, _)| {
+                    (
+                        s.to_string(),
+                        SourceConfig {
+                            enabled: true,
+                            paths: Vec::new(),
+                        },
+                    )
+                })
+                .collect(),
         }
     }
 }

@@ -73,6 +73,16 @@ pub trait Connector: Send + Sync {
     ) -> Result<Vec<EnrichmentItem>, ConnectorError> {
         Err(ConnectorError::Unsupported)
     }
+
+    /// Describes a product from public data, for agent reports that only carry an id. `None` when the platform
+    /// does not know it or it is not something to list (demos, trailers).
+    async fn lookup(
+        &self,
+        _cx: &Context,
+        _platform_game_id: &str,
+    ) -> Result<Option<LibraryItem>, ConnectorError> {
+        Ok(None)
+    }
 }
 
 /// The connectors available on this instance, by platform key.
