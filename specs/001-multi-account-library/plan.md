@@ -20,7 +20,8 @@ keep data locally and captures browser logins. Research decisions D1 to D15 are 
 **Primary Dependencies**: Leptos 0.8 + leptos_axum 0.8 + leptos_i18n 0.6, Axum 0.8, Tokio 1, sqlx 0.9
 (SQLite), tower-sessions 0.15 (custom store), argon2 0.6, chacha20poly1305 0.11, secrecy 0.10, reqwest 0.13
 (rustls), governor 0.10, backon 1.6, croner 4, nucleo-matcher 0.3, deunicode 1.6, image 0.25, figment 0.10,
-tracing; agent: Tauri 2.12 with the autostart plugin, keyring 4, keyvalues-parser 0.2 (Steam VDF)
+tracing; agent: Tauri 2.12 with the autostart plugin, keyring 4, winreg 0.56 (uninstall entries);
+Steam VDF files are read by a small built-in parser
 
 **Storage**: one SQLite database in WAL mode plus a content-addressed artwork cache, both in the data volume
 
@@ -92,8 +93,9 @@ Cargo.toml                # workspace, shared lints and dependency versions
 crates/
 ├── core/                 # domain types, matching, normalization, visibility and sharing rules (no I/O)
 ├── store/                # sqlx SQLite: migrations, repositories, session store, sealed secrets
-├── connectors/           # Connector and LocalSource contracts, platform registry, one module per platform
-│   └── tests/fixtures/   # anonymized recorded responses and launcher files
+├── connectors/           # Connector contract, one module per platform
+│   └── tests/fixtures/   # anonymized recorded responses
+├── local/                # LocalSource readers of launcher files (Steam, Epic, GOG Galaxy, Battle.net, ...)
 ├── metadata/             # IGDB, SteamGridDB, Wikidata clients, artwork cache
 ├── notify/               # Discord, ntfy, Gotify senders, grouping and reminder ledger
 ├── sync/                 # job runner, scheduler, snapshot diffing, account health

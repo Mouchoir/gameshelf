@@ -238,14 +238,14 @@ search and a game detail page.
 
 ### Local sources
 
-- [ ] T096 [P] [US5] Implement and test the Steam local source (library folders, app manifests, per-user local config playtime and last played, login users) with anonymized fixture files in `crates/connectors/src/local/steam.rs`
-- [ ] T097 [P] [US5] Implement and test the Epic local source (install manifests) in `crates/connectors/src/local/epic.rs`
-- [ ] T098 [P] [US5] Implement and test the GOG Galaxy local source (read-only open of the local database: owned releases, game times) in `crates/connectors/src/local/gog_galaxy.rs`
-- [ ] T099 [P] [US5] Implement and test the Battle.net local source (client config products and last played, product database install paths) in `crates/connectors/src/local/battlenet.rs`
-- [ ] T100 [P] [US5] Implement and test the Ubisoft Connect local source (install registry, configuration cache) in `crates/connectors/src/local/ubisoft.rs`
-- [ ] T101 [P] [US5] Implement and test the Windows packages source for Microsoft Store and Xbox games in `crates/connectors/src/local/xbox_packages.rs`
-- [ ] T102 [P] [US5] Implement and test the uninstall-registry source with a signature table for publisher and single-game launchers (Riot, Rockstar, Tempo, Battlestate, HoYoPlay, Wargaming, Jagex and others from research.md section 2) in `crates/connectors/src/local/uninstall_registry.rs`
-- [ ] T103 [P] [US5] Implement and test the Linux sources for Heroic (Epic, GOG, Amazon libraries) and Lutris in `crates/connectors/src/local/heroic.rs` and `crates/connectors/src/local/lutris.rs`
+- [x] T096 [P] [US5] Implement and test the Steam local source (library folders, app manifests, per-user local config playtime and last played, persona names from login users) with synthetic fixture files in `crates/local/src/steam.rs`
+- [x] T097 [P] [US5] Implement and test the Epic local source (launcher install manifests, Legendary and Heroic installs on Linux) in `crates/local/src/epic.rs`
+- [x] T098 [P] [US5] Implement and test the GOG Galaxy local source (reads a temporary copy of the local database: owned releases, titles, DLC flags, game times, last played, installs) in `crates/local/src/gog.rs`
+- [x] T099 [P] [US5] Implement and test the Battle.net local source (uninstall entries with product uids, last played from the client config, never the saved account name) in `crates/local/src/battlenet.rs`
+- [x] T100 [P] [US5] Implement and test the Ubisoft Connect local source (`Uplay Install <id>` uninstall entries) in `crates/local/src/ubisoft.rs`
+- [ ] T101 [P] [US5] Implement and test the Windows packages source for Microsoft Store and Xbox games in `crates/local/src/xbox.rs`
+- [x] T102 [P] [US5] Implement and test the uninstall-registry source with a signature table for publisher and single-game launchers (Riot, Rockstar, Tempo, Battlestate, HoYoPlay, Wargaming, Jagex and others from research.md section 2) in `crates/local/src/launchers.rs` and `crates/local/src/registry.rs`
+- [ ] T103 [P] [US5] Implement and test the Linux sources for Heroic (GOG and Amazon libraries; Epic through Legendary is covered by T097) and Lutris in `crates/local/src/heroic.rs` and `crates/local/src/lutris.rs`
 
 ### Agent application
 

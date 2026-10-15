@@ -28,6 +28,7 @@ gameshelf-connectors = { path = "crates/connectors" }
 gameshelf-metadata = { path = "crates/metadata" }
 gameshelf-notify = { path = "crates/notify" }
 gameshelf-sync = { path = "crates/sync" }
+gameshelf-local = { path = "crates/local" }
 gameshelf-app = { path = "crates/app", default-features = false }
 
 # Web
@@ -75,7 +76,6 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 chrono-tz = { version = "0.10" }
 nucleo-matcher = { version = "0.3" }
 deunicode = { version = "1" }
-keyvalues-parser = { version = "0.2" }
 url = { version = "2", features = ["serde"] }
 
 # Tests

@@ -1,0 +1,30 @@
+[package]
+name = "gameshelf-local"
+description = "Local launcher readers used by the gameshelf agent (contracts/agent-api.md)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+gameshelf-core = { workspace = true }
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+sqlx = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tempfile = { workspace = true }
+
+[target.'cfg(windows)'.dependencies]
+winreg = { version = "0.56" }
+
+[dev-dependencies]
+tokio = { workspace = true }
