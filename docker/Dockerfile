@@ -15,12 +15,14 @@ COPY --from=planner /src/recipe.json recipe.json
 # Dependencies of the server, then of the browser bundle (cargo-leptos builds it in target/front).
 RUN cargo chef cook --release --recipe-path recipe.json -p gameshelf  && cargo chef cook --profile wasm-release --target wasm32-unknown-unknown --target-dir target/front       --recipe-path recipe.json -p gameshelf-frontend
 COPY . .
-RUN cargo leptos build --release
+RUN cargo leptos build --release && mkdir -p /out/data
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 WORKDIR /app
 COPY --from=builder /src/target/release/gameshelf /app/gameshelf
 COPY --from=builder /src/target/site /app/site
+# Owned by the runtime user, so a named volume mounted here starts writable.
+COPY --from=builder --chown=65532:65532 /out/data /data
 ENV LEPTOS_OUTPUT_NAME=gameshelf \
     LEPTOS_SITE_ROOT=/app/site \
     LEPTOS_SITE_PKG_DIR=pkg \

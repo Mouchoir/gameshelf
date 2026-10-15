@@ -16,6 +16,8 @@ services:
     secrets:
       - gameshelf_key
     volumes:
+      # A named volume works as is. A host folder must be writable by uid 65532 (the image runs as nonroot):
+      #   mkdir -p /srv/gameshelf && chown 65532:65532 /srv/gameshelf
       - gameshelf-data:/data
 
 secrets:
