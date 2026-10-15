@@ -2,6 +2,7 @@
 //! reports to the server (contracts/agent-api.md). Readers only read: they never write to a launcher's files,
 //! and they never collect credentials, login names or e-mail addresses.
 
+pub mod appinfo;
 pub mod battlenet;
 pub mod epic;
 pub mod gog;
