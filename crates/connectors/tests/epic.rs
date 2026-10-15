@@ -6,10 +6,13 @@ use gameshelf_connectors::{
 use gameshelf_core::ProductKind;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{body_string_contains, header, method, path, query_param},
+    matchers::{body_string_contains, header_regex, method, path, query_param},
 };
 
 const ACCOUNT: &str = "00000000000000000000000000000abc";
+/// HTTP Basic header of the launcher's public client: the prefix is base64 of `<client id>:`
+/// (33 bytes, so it encodes on its own); the secret part is matched loosely to keep it out of the test.
+const LAUNCHER_BASIC_AUTH: &str = "^Basic MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6[A-Za-z0-9+/]+=*$";
 
 fn fixture(name: &str) -> serde_json::Value {
     let p = format!("{}/tests/fixtures/epic/{name}", env!("CARGO_MANIFEST_DIR"));
@@ -42,10 +45,7 @@ async fn code_exchange_returns_rolling_tokens_and_expiry() {
         .and(path("/account/api/oauth/token"))
         .and(body_string_contains("grant_type=authorization_code"))
         .and(body_string_contains("code=AUTHCODE123"))
-        .and(header(
-            "authorization",
-            "Basic MzRhMDJjZjhmNDQxNGUyOWIxNTkyMTg3NmRhMzZmOWE6ZGFhZmJjY2M3Mzc3NDUwMzlkZmZlNTNkOTRmYzc2Y2Y=",
-        ))
+        .and(header_regex("authorization", LAUNCHER_BASIC_AUTH))
         .respond_with(ResponseTemplate::new(200).set_body_json(fixture("token.json")))
         .mount(&server)
         .await;
