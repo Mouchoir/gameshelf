@@ -371,9 +371,9 @@ impl Store {
         Ok(())
     }
 
-    /// Records a contact and the agent's version.
+    /// Records a contact and the agent's version. Any contact ends a silence.
     pub async fn touch_agent(&self, id: AgentId, version: &str) -> Result<()> {
-        sqlx::query("UPDATE agents SET last_seen_at = ?, version = ? WHERE id = ?")
+        sqlx::query("UPDATE agents SET last_seen_at = ?, version = ?, silent_since = NULL WHERE id = ?")
             .bind(now())
             .bind(version.chars().take(32).collect::<String>())
             .bind(id.txt())
@@ -390,7 +390,8 @@ impl Store {
             .filter(|(s, _)| SOURCES.iter().any(|(id, _)| id == s))
             .collect();
         sqlx::query(
-            "UPDATE agents SET last_seen_at = ?, version = ?, autostart = ?, paused_locally = ?, source_states = ?
+            "UPDATE agents SET last_seen_at = ?, version = ?, autostart = ?, paused_locally = ?, source_states = ?,
+                silent_since = NULL
              WHERE id = ?",
         )
         .bind(now())
@@ -402,6 +403,16 @@ impl Store {
         .execute(self.pool())
         .await?;
         Ok(())
+    }
+
+    /// Marks an agent silent. Returns true only the first time for a given silence.
+    pub async fn mark_agent_silent(&self, id: AgentId) -> Result<bool> {
+        let done = sqlx::query("UPDATE agents SET silent_since = ? WHERE id = ? AND silent_since IS NULL")
+            .bind(now())
+            .bind(id.txt())
+            .execute(self.pool())
+            .await?;
+        Ok(done.rows_affected() == 1)
     }
 
     /// Content hash of the last report of one source for one platform.
@@ -627,6 +638,28 @@ mod tests {
                 .await
                 .is_err(),
             "a revoked agent cannot reactivate itself"
+        );
+    }
+
+    #[tokio::test]
+    async fn silence_is_reported_once_until_the_next_contact() {
+        let (store, profile) = store_with_profile().await;
+        let (code, _) = store.create_pairing_code(profile).await.expect("code");
+        let agent = store
+            .pair_agent(&code, "PC", "linux", "0.1.0")
+            .await
+            .expect("db")
+            .expect("paired")
+            .agent;
+        assert!(store.mark_agent_silent(agent.id).await.expect("db"));
+        assert!(
+            !store.mark_agent_silent(agent.id).await.expect("db"),
+            "once per silence"
+        );
+        store.touch_agent(agent.id, "0.1.0").await.expect("touch");
+        assert!(
+            store.mark_agent_silent(agent.id).await.expect("db"),
+            "a new silence after a contact"
         );
     }
 

@@ -8,11 +8,12 @@ use crate::{
 };
 use leptos::prelude::*;
 
-const EVENTS: [&str; 4] = [
+const EVENTS: [&str; 5] = [
     "game_added",
     "game_unavailable",
     "account_needs_reconnect",
     "account_degraded",
+    "agent_silent",
 ];
 
 #[component]
@@ -134,6 +135,7 @@ fn TargetItem(
                                 "game_added" => t!(i18n, event_game_added).into_any(),
                                 "game_unavailable" => t!(i18n, event_game_unavailable).into_any(),
                                 "account_needs_reconnect" => t!(i18n, event_account_needs_reconnect).into_any(),
+                                "agent_silent" => t!(i18n, event_agent_silent).into_any(),
                                 _ => t!(i18n, event_account_degraded).into_any(),
                             }}</span>
                         </label>

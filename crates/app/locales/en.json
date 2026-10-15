@@ -197,5 +197,6 @@
   "agents_revoke_warning": "The agent stops at its next contact. Games it reported stay in your library.",
   "agents_delete": "Delete",
   "agents_delete_warning": "Deletes the agent and its install records. Games stay in your library.",
-  "account_via_agent": "Fed by an agent"
+  "account_via_agent": "Fed by an agent",
+  "event_agent_silent": "An agent goes silent"
 }

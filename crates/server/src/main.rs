@@ -70,6 +70,7 @@ async fn main() {
     );
     state.rebuild_search().await;
     spawn_housekeeping(store.clone());
+    spawn_agent_watch(state.clone());
     match schedule::Schedule::parse(&cfg.sync_schedule, cfg.time_zone.as_deref()) {
         Ok(s) => schedule::spawn(state.clone(), s),
         Err(e) => fatal(&e.to_string()),
@@ -137,6 +138,17 @@ fn spawn_housekeeping(store: Store) {
             if let Err(e) = store.purge_old_runs().await {
                 tracing::warn!(error = %e, "run purge failed");
             }
+        }
+    });
+}
+
+/// Hourly check for agents that stopped reporting.
+fn spawn_agent_watch(state: AppState) {
+    tokio::spawn(async move {
+        let mut tick = tokio::time::interval(Duration::from_secs(3600));
+        loop {
+            tick.tick().await;
+            gameshelf_app::server::notifications::check_silent_agents(&state).await;
         }
     });
 }

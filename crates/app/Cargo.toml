@@ -66,3 +66,4 @@ ssr = [
 tower = { workspace = true, features = ["util"] }
 secrecy = { workspace = true }
 flate2 = { workspace = true }
+sqlx = { workspace = true }

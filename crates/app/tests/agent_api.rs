@@ -23,6 +23,7 @@ struct Api {
     app: Router,
     store: Store,
     profile: ProfileId,
+    state: AppState,
 }
 
 async fn setup() -> Api {
@@ -51,8 +52,13 @@ async fn setup() -> Api {
     );
     let app = Router::new()
         .nest("/api/agent/v1", agent_api::router())
-        .with_state(state);
-    Api { app, store, profile }
+        .with_state(state.clone());
+    Api {
+        app,
+        store,
+        profile,
+        state,
+    }
 }
 
 struct Call<'a> {
@@ -320,4 +326,49 @@ async fn paused_and_revoked_agents_are_stopped() {
     let (status, body) = send(&api, Call::new("GET", "/config").token(&token)).await;
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert_eq!(body["error"]["code"], "agent_revoked");
+}
+
+#[tokio::test]
+async fn silent_agents_are_reported_once_per_silence() {
+    let api = setup().await;
+    let (token, _) = pair(&api).await;
+    gameshelf_app::server::notifications::check_silent_agents(&api.state).await;
+    let silent = |events: Vec<gameshelf_store::ActivityEvent>| {
+        events
+            .into_iter()
+            .filter(|e| e.kind == gameshelf_store::ActivityKind::AgentSilent)
+            .count()
+    };
+    assert_eq!(
+        silent(api.store.list_activity(api.profile, 50).await.expect("db")),
+        0,
+        "just paired"
+    );
+
+    let long_ago = time::OffsetDateTime::now_utc() - time::Duration::days(3);
+    sqlx::query("UPDATE agents SET last_seen_at = ?")
+        .bind(long_ago)
+        .execute(api.store.pool())
+        .await
+        .expect("age");
+    gameshelf_app::server::notifications::check_silent_agents(&api.state).await;
+    gameshelf_app::server::notifications::check_silent_agents(&api.state).await;
+    assert_eq!(
+        silent(api.store.list_activity(api.profile, 50).await.expect("db")),
+        1
+    );
+
+    // A contact ends the silence; the next one is reported again.
+    let (status, _) = send(&api, Call::new("GET", "/config").token(&token)).await;
+    assert_eq!(status, StatusCode::OK);
+    sqlx::query("UPDATE agents SET last_seen_at = ?")
+        .bind(long_ago)
+        .execute(api.store.pool())
+        .await
+        .expect("age");
+    gameshelf_app::server::notifications::check_silent_agents(&api.state).await;
+    assert_eq!(
+        silent(api.store.list_activity(api.profile, 50).await.expect("db")),
+        2
+    );
 }

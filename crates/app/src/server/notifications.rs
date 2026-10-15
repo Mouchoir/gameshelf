@@ -10,11 +10,12 @@ use gameshelf_store::ActivityKind;
 use gameshelf_sync::RunOutcome;
 
 /// Event kinds a target can subscribe to.
-pub const EVENT_KINDS: [&str; 4] = [
+pub const EVENT_KINDS: [&str; 5] = [
     "game_added",
     "game_unavailable",
     "account_needs_reconnect",
     "account_degraded",
+    "agent_silent",
 ];
 
 struct Outgoing {
@@ -125,6 +126,55 @@ pub async fn daily_reminders(state: &AppState) {
         if !out.is_empty() {
             deliver(state, profile.id, out).await;
         }
+    }
+}
+
+/// Tells owners about agents that missed two scans in a row, once per silence (task T123).
+pub async fn check_silent_agents(state: &AppState) {
+    let Ok(agents) = state.store.list_active_agents().await else {
+        return;
+    };
+    let now = time::OffsetDateTime::now_utc();
+    for agent in agents {
+        let grace = time::Duration::hours(2 * i64::from(agent.scan_hours.max(1)));
+        let last = agent.last_seen_at.unwrap_or(agent.paired_at);
+        if agent.paused_locally || now - last <= grace {
+            continue;
+        }
+        match state.store.mark_agent_silent(agent.id).await {
+            Ok(true) => {}
+            Ok(false) => continue,
+            Err(e) => {
+                tracing::warn!(error = %e, "cannot record a silent agent");
+                continue;
+            }
+        }
+        let _ = state
+            .store
+            .add_activity(
+                agent.profile_id,
+                ActivityKind::AgentSilent,
+                None,
+                None,
+                &serde_json::json!({ "agent": agent.name }),
+                None,
+            )
+            .await;
+        let lang = match state.store.get_profile(agent.profile_id).await {
+            Ok(Some(p)) => Lang::from_code(p.locale.as_str()),
+            _ => Lang::En,
+        };
+        let message = text::agent_silent(lang, &agent.name, state.base_url.as_deref());
+        deliver(
+            state,
+            agent.profile_id,
+            vec![Outgoing {
+                kind: "agent_silent",
+                message,
+                reminder: None,
+            }],
+        )
+        .await;
     }
 }
 

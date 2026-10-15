@@ -290,7 +290,7 @@ search and a game detail page.
 - [X] T120 [US7] Implement grouping per sync run (up to 10 games then "and N more"), localized rendering in the owner's language, and the reminder ledger (one reminder per issue per target per day) in `crates/notify/src/grouping.rs` and `crates/notify/src/ledger.rs`
 - [X] T121 [US7] Implement notification target repository with sealed configuration in `crates/store/src/repo/notify.rs`
 - [X] T122 [US7] Build the Notifications page (targets, event selection, "Send test", last error) and in-app unread badge in `crates/app/src/routes/notifications.rs`
-- [ ] T123 [US7] Emit `agent_silent` events when an agent misses twice its schedule in `crates/sync/src/health.rs`
+- [x] T123 [US7] Emit `agent_silent` events when an agent misses twice its schedule, once per silence, in `crates/app/src/server/notifications.rs` (hourly check started by the server)
 
 ---
 

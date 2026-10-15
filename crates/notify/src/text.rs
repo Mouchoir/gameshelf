@@ -120,6 +120,30 @@ pub fn degraded(lang: Lang, platform: &str, account: &str, base: Option<&str>) -
     }
 }
 
+/// An agent missed two scans in a row.
+pub fn agent_silent(lang: Lang, agent: &str, base: Option<&str>) -> Message {
+    let (title, body) = match lang {
+        Lang::En => (
+            format!("Agent \"{agent}\" is silent"),
+            format!(
+                "The agent on \"{agent}\" has not been in touch for more than two scan intervals. Its games stay visible; check that the computer is on and the agent running."
+            ),
+        ),
+        Lang::Fr => (
+            format!("L'agent « {agent} » ne répond plus"),
+            format!(
+                "L'agent de « {agent} » n'a pas donné de nouvelles depuis plus de deux intervalles d'analyse. Ses jeux restent visibles ; vérifiez que l'ordinateur est allumé et l'agent lancé."
+            ),
+        ),
+    };
+    Message {
+        title,
+        body,
+        url: link(base, "/agents"),
+        priority: Priority::Normal,
+    }
+}
+
 /// The "Send test" message.
 pub fn test(lang: Lang, base: Option<&str>) -> Message {
     let (title, body) = match lang {

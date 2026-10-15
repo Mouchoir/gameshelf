@@ -197,5 +197,6 @@
   "agents_revoke_warning": "L'agent s'arrête à son prochain contact. Les jeux qu'il a remontés restent dans votre bibliothèque.",
   "agents_delete": "Supprimer",
   "agents_delete_warning": "Supprime l'agent et ses relevés d'installation. Les jeux restent dans votre bibliothèque.",
-  "account_via_agent": "Alimenté par un agent"
+  "account_via_agent": "Alimenté par un agent",
+  "event_agent_silent": "Un agent ne répond plus"
 }
