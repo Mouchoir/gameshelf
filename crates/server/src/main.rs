@@ -2,6 +2,7 @@
 
 mod api;
 mod config;
+mod cookies;
 mod origin;
 mod schedule;
 
@@ -78,7 +79,8 @@ async fn main() {
 
     let sessions = SessionManagerLayer::new(SqliteSessionStore::new(store.clone()))
         .with_name("gameshelf_session")
-        .with_secure(cfg.https())
+        // Set per request by `cookies::secure`: on for the public HTTPS address, off on the LAN.
+        .with_secure(false)
         .with_http_only(true)
         .with_same_site(SameSite::Lax)
         .with_expiry(Expiry::OnInactivity(time::Duration::days(30)));
@@ -105,6 +107,10 @@ async fn main() {
         )
         .fallback(leptos_axum::file_and_error_handler::<AppState, _>(shell))
         .layer(sessions)
+        .layer(middleware::from_fn_with_state(
+            cfg.base_url.clone(),
+            cookies::secure,
+        ))
         .layer(middleware::from_fn_with_state(origin_policy, origin::check))
         .with_state(state);
 

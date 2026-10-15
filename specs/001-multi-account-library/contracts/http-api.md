@@ -43,7 +43,8 @@ install paths (FR-044).
 
 ## 3. Authentication and request safety
 
-- Sessions: cookie `gameshelf_session`, `HttpOnly`, `SameSite=Lax`, `Secure` when the public base URL is HTTPS;
+- Sessions: cookie `gameshelf_session`, `HttpOnly`, `SameSite=Lax`, `Secure` on requests addressed to the HTTPS
+  public base URL (not on LAN addresses, where the server is reached over HTTP);
   idle timeout 30 days, rotated at sign-in and on privilege change.
 - State-changing requests require an `Origin` or `Referer` header matching the configured public base URL or a
   local address; others are rejected with `403`.
