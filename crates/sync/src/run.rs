@@ -69,6 +69,10 @@ impl Syncer {
         if !account.status.syncs() && account.status != AccountStatus::Pending {
             return Ok(RunOutcome::Skipped("account not active"));
         }
+        if account.agent_id.is_some() {
+            // Fed by an agent: there is no credential to sync with, and that is not an error.
+            return Ok(RunOutcome::Skipped("fed by an agent"));
+        }
         let Some(connector) = self.registry.get(&account.platform) else {
             return Ok(RunOutcome::Skipped("no connector for this platform"));
         };

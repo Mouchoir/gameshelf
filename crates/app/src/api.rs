@@ -270,6 +270,7 @@ pub async fn accounts() -> Result<Vec<AccountView>, ServerFnError> {
             },
             last_error,
             syncing: st.is_syncing(a.id),
+            via_agent: a.agent_id.is_some(),
         });
     }
     Ok(out)
@@ -827,4 +828,164 @@ pub async fn sharing_profiles() -> Result<Vec<(gameshelf_core::ProfileId, String
         }
     }
     Ok(out)
+}
+
+#[cfg(feature = "ssr")]
+async fn owned_agent(agent: gameshelf_core::AgentId) -> Result<gameshelf_store::Agent, ServerFnError> {
+    let profile = require_profile().await?;
+    state()?
+        .store
+        .get_agent(agent)
+        .await
+        .map_err(internal)?
+        .filter(|a| a.profile_id == profile.id)
+        .ok_or_else(|| ServerFnError::new("not found"))
+}
+
+/// The profile's agents (US5).
+#[server]
+pub async fn agents() -> Result<Vec<AgentView>, ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    let now = time::OffsetDateTime::now_utc();
+    let mut out = Vec::new();
+    for a in st.store.list_agents(profile.id).await.map_err(internal)? {
+        let config = a.config();
+        let sources = gameshelf_core::agent::SOURCES
+            .iter()
+            .filter_map(|(id, _)| config.sources.get_key_value(*id))
+            .map(|(id, s)| {
+                let reported = a.source_states.get(id);
+                AgentSourceView {
+                    id: id.clone(),
+                    enabled: s.enabled,
+                    detected: reported.map(|x| x.detected),
+                    last_scan_at: reported.and_then(|x| x.last_scan_at),
+                }
+            })
+            .collect();
+        let silent = a.status == gameshelf_store::AgentStatus::Active
+            && a.last_seen_at
+                .is_none_or(|t| now - t > time::Duration::hours(2 * i64::from(a.scan_hours)));
+        out.push(AgentView {
+            id: a.id,
+            installs: st.store.count_installs(a.id).await.map_err(internal)?,
+            name: a.name,
+            os: a.os,
+            version: a.version,
+            status: a.status.as_str().to_string(),
+            paused_locally: a.paused_locally,
+            autostart: a.autostart,
+            scan_hours: a.scan_hours,
+            send_install_paths: a.send_install_paths,
+            paired_at: a.paired_at,
+            last_seen_at: a.last_seen_at,
+            silent,
+            sources,
+        });
+    }
+    Ok(out)
+}
+
+/// Creates a single-use pairing code, valid 10 minutes.
+#[server]
+pub async fn create_pairing_code() -> Result<PairingCodeView, ServerFnError> {
+    let profile = require_profile().await?;
+    let st = state()?;
+    let (code, expires_at) = st.store.create_pairing_code(profile.id).await.map_err(internal)?;
+    let server_url = match &st.base_url {
+        Some(u) => u.trim_end_matches('/').to_string(),
+        None => {
+            let headers = leptos_axum::extract::<axum::http::HeaderMap>()
+                .await
+                .unwrap_or_default();
+            let host = headers
+                .get(axum::http::header::HOST)
+                .and_then(|h| h.to_str().ok())
+                .unwrap_or("localhost");
+            format!("{}://{host}", if st.https { "https" } else { "http" })
+        }
+    };
+    Ok(PairingCodeView {
+        code,
+        expires_at,
+        server_url,
+    })
+}
+
+/// Pauses, resumes or removes an agent. A removed agent stops at its next contact.
+#[server]
+pub async fn set_agent_state(agent: gameshelf_core::AgentId, action: String) -> Result<(), ServerFnError> {
+    use gameshelf_store::AgentStatus;
+    let a = owned_agent(agent).await?;
+    let status = match action.as_str() {
+        "pause" => AgentStatus::Paused,
+        "resume" => AgentStatus::Active,
+        "revoke" => AgentStatus::Revoked,
+        _ => return Err(ServerFnError::new("unknown action")),
+    };
+    state()?
+        .store
+        .set_agent_status(a.id, Some(a.profile_id), status)
+        .await
+        .map_err(internal)
+}
+
+/// Changes the scan interval and whether install folders are sent.
+#[server]
+pub async fn update_agent(
+    agent: gameshelf_core::AgentId,
+    scan_hours: u32,
+    send_install_paths: bool,
+) -> Result<(), ServerFnError> {
+    let a = owned_agent(agent).await?;
+    let settings = gameshelf_store::AgentSettings {
+        scan_hours,
+        send_install_paths,
+        sources: a.config().sources,
+    };
+    state()?
+        .store
+        .update_agent_settings(a.id, a.profile_id, &settings)
+        .await
+        .map_err(|e| match e {
+            gameshelf_store::StoreError::Invalid(msg) => ServerFnError::new(msg),
+            other => internal(other),
+        })
+}
+
+/// Turns one local source of an agent on or off.
+#[server]
+pub async fn set_agent_source(
+    agent: gameshelf_core::AgentId,
+    source: String,
+    enabled: bool,
+) -> Result<(), ServerFnError> {
+    let a = owned_agent(agent).await?;
+    let mut sources = a.config().sources;
+    let Some(slot) = sources.get_mut(&source) else {
+        return Err(ServerFnError::new("unknown source"));
+    };
+    slot.enabled = enabled;
+    let settings = gameshelf_store::AgentSettings {
+        scan_hours: a.scan_hours,
+        send_install_paths: a.send_install_paths,
+        sources,
+    };
+    state()?
+        .store
+        .update_agent_settings(a.id, a.profile_id, &settings)
+        .await
+        .map_err(internal)
+}
+
+/// Deletes an agent with its install records. Games it reported stay in the library.
+#[server]
+pub async fn delete_agent(agent: gameshelf_core::AgentId) -> Result<(), ServerFnError> {
+    let a = owned_agent(agent).await?;
+    state()?
+        .store
+        .delete_agent(a.id, a.profile_id)
+        .await
+        .map_err(internal)
 }

@@ -56,6 +56,7 @@ pub fn App() -> impl IntoView {
                         <Route path=path!("/accounts/connect") view=pages::ConnectPickerPage/>
                         <Route path=path!("/accounts/connect/:platform") view=pages::ConnectPlatformPage/>
                         <Route path=path!("/activity") view=pages::ActivityPage/>
+                        <Route path=path!("/agents") view=pages::AgentsPage/>
                         <Route path=path!("/notifications") view=pages::NotificationsPage/>
                         <Route path=path!("/sharing") view=pages::SharingPage/>
                         <Route path=path!("/admin") view=pages::AdminPage/>

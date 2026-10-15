@@ -234,7 +234,7 @@ search and a game detail page.
 - [x] T092 [US5] Implement agent and pairing code repositories (token stored as SHA-256 hash, status `active`, `paused`, `revoked`) in `crates/store/src/repo/agents.rs`
 - [x] T093 [US5] Implement `/api/agent/v1` endpoints (pair, config, heartbeat, reports, login result and decline, self delete) exactly as in contracts/agent-api.md in `crates/app/src/server/agent_api.rs` (login result and decline answer `unknown_request` until T107)
 - [x] T094 [US5] Apply agent reports through the import pipeline (account matching by external id or by the player's connected accounts, install records per machine, `send_install_paths` honored) in `crates/sync/src/agent_reports.rs`
-- [ ] T095 [US5] Build the Agents page (create pairing code, list agents with last contact, sources, schedule, pause, revoke, login requests "Connect with agent") in `crates/app/src/routes/agents.rs`
+- [x] T095 [US5] Build the Agents page (create pairing code, list agents with last contact, sources, schedule, pause, revoke; "Connect with agent" login requests come with T107) in `crates/app/src/pages/agents.rs`
 
 ### Local sources
 

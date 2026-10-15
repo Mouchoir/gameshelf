@@ -3,6 +3,7 @@
 mod accounts;
 mod activity;
 mod admin;
+mod agents;
 pub(crate) mod auth;
 mod game;
 mod library;
@@ -12,6 +13,7 @@ mod sharing;
 pub use accounts::{AccountsPage, ConnectPickerPage, ConnectPlatformPage};
 pub use activity::ActivityPage;
 pub use admin::AdminPage;
+pub use agents::AgentsPage;
 pub use auth::{LoginPage, SetupPage};
 pub use game::GamePage;
 pub use library::LibraryPage;

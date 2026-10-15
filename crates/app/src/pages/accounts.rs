@@ -93,7 +93,11 @@ fn AccountItem(
                     </Show>
                     <div class="muted small">{a.platform_name.clone()}{a.display_name.clone().map(|d| format!(" · {d}"))}</div>
                 </div>
-                <StatusBadge status=a.status/>
+                {if a.via_agent {
+                    view! { <span class="badge">{t!(i18n, account_via_agent)}</span> }.into_any()
+                } else {
+                    view! { <StatusBadge status=a.status/> }.into_any()
+                }}
             </div>
             <dl class="facts">
                 <div><dt>{t!(i18n, account_games)}</dt><dd>{a.games}</dd></div>
@@ -110,7 +114,7 @@ fn AccountItem(
                 view! { <p class="warn-text">{t!(i18n, account_expires, date = move || d.clone())}" "<a href=href>{t!(i18n, accounts_connect)}</a></p> }
             })}
             <div class="actions">
-                <button type="button" disabled=a.syncing || !a.status.syncs()
+                <button type="button" disabled=a.syncing || !a.status.syncs() || a.via_agent
                     on:click=move |_| { sync.dispatch(SyncNow { account: id }); }>
                     {if a.syncing { t!(i18n, account_sync_started).into_any() } else { t!(i18n, account_sync_now).into_any() }}
                 </button>

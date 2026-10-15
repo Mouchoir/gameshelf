@@ -1,7 +1,7 @@
 //! Data exchanged between server functions and the browser.
 
 use gameshelf_core::{
-    AccountId, GameId, LocalePref, ProfileId, Role,
+    AccountId, AgentId, GameId, LocalePref, ProfileId, Role,
     account_status::AccountStatus,
     platform::Tier,
     view::{GameSummary, LibraryQuery, VisibleOwnership},
@@ -73,6 +73,8 @@ pub struct AccountView {
     pub credential_expiring: bool,
     pub last_error: Option<String>,
     pub syncing: bool,
+    /// Created and fed by an agent; it has no credential to sync with.
+    pub via_agent: bool,
 }
 
 /// One row of a game's ownership list, with the owner's name when it is another profile.
@@ -189,4 +191,43 @@ pub struct SharingView {
     pub platforms: Vec<HideablePlatform>,
     pub accounts: Vec<HideableAccount>,
     pub hidden_games: Vec<HiddenGame>,
+}
+
+/// A paired agent as shown on the Agents page.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentView {
+    pub id: AgentId,
+    pub name: String,
+    pub os: String,
+    pub version: String,
+    /// `active`, `paused` or `revoked`.
+    pub status: String,
+    pub paused_locally: bool,
+    pub autostart: bool,
+    pub scan_hours: u32,
+    pub send_install_paths: bool,
+    pub paired_at: OffsetDateTime,
+    pub last_seen_at: Option<OffsetDateTime>,
+    /// No contact for more than twice the scan interval.
+    pub silent: bool,
+    pub installs: i64,
+    pub sources: Vec<AgentSourceView>,
+}
+
+/// One local source of an agent: the web app's choice and what the agent last said.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentSourceView {
+    pub id: String,
+    pub enabled: bool,
+    /// `None` until the agent reported on it.
+    pub detected: Option<bool>,
+    pub last_scan_at: Option<OffsetDateTime>,
+}
+
+/// A fresh pairing code with the address the agent must reach.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PairingCodeView {
+    pub code: String,
+    pub expires_at: OffsetDateTime,
+    pub server_url: String,
 }

@@ -187,6 +187,11 @@ textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3
 /* Notifications */
 .narrow-form { max-width: 520px; }
 .hidden { display: none !important; }
+.pairing { margin-top: 16px; padding: 16px; border-radius: 12px; background: var(--surface-2); max-width: 640px; }
+.pairing-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 2rem; letter-spacing: .12em; margin: 0 0 8px; }
+.command { overflow-x: auto; padding: 10px 12px; border-radius: 8px; background: var(--surface); font-size: .85rem; }
+.agent-settings { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+.agent-settings label:not(.toggle) { display: inline-flex; gap: 8px; align-items: center; font-size: .85rem; color: var(--muted); }
 fieldset.events { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
 fieldset.events legend { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; }
 

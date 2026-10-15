@@ -48,6 +48,7 @@ pub fn Header(me: Me) -> impl IntoView {
                 <A href="/">{t!(i18n, nav_library)}</A>
                 <A href="/accounts">{t!(i18n, nav_accounts)}</A>
                 <A href="/activity">{t!(i18n, nav_activity)}</A>
+                <A href="/agents">{t!(i18n, nav_agents)}</A>
                 <A href="/notifications">{t!(i18n, nav_notifications)}</A>
                 <A href="/sharing">{t!(i18n, nav_sharing)}</A>
                 {is_admin.then(|| view! { <A href="/admin">{t!(i18n, nav_admin)}</A> })}
