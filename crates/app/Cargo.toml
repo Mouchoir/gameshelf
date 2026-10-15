@@ -34,6 +34,7 @@ tokio = { workspace = true, optional = true }
 tower-sessions = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 secrecy = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
 
 [build-dependencies]
 leptos_i18n_build = { version = "0.6" }
@@ -58,4 +59,10 @@ ssr = [
     "dep:tower-sessions",
     "dep:tracing",
     "dep:secrecy",
+    "dep:tower-http",
 ]
+
+[dev-dependencies]
+tower = { workspace = true, features = ["util"] }
+secrecy = { workspace = true }
+flate2 = { version = "1" }

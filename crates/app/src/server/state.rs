@@ -3,7 +3,7 @@
 use axum::extract::FromRef;
 use gameshelf_core::{AccountId, search::SearchIndex};
 use gameshelf_store::{RunTrigger, Store};
-use gameshelf_sync::Syncer;
+use gameshelf_sync::{AgentImporter, Syncer};
 use leptos::prelude::LeptosOptions;
 use std::{
     collections::{HashMap, HashSet},
@@ -15,6 +15,9 @@ use std::{
 /// Sign-in attempts allowed per window, per address and per username (contracts/http-api.md section 3).
 pub const LOGIN_ATTEMPTS: usize = 10;
 pub const LOGIN_WINDOW: Duration = Duration::from_secs(15 * 60);
+/// Pairing attempts allowed per window and per address (contracts/agent-api.md).
+pub const PAIR_ATTEMPTS: usize = 5;
+pub const PAIR_WINDOW: Duration = Duration::from_secs(10 * 60);
 /// Accounts synced at the same time (research D6).
 pub const MAX_PARALLEL_SYNCS: usize = 3;
 
@@ -23,6 +26,8 @@ pub struct AppState {
     pub leptos: LeptosOptions,
     pub store: Store,
     pub syncer: Syncer,
+    /// Applies agent reports.
+    pub agents: AgentImporter,
     pub search: Arc<RwLock<SearchIndex>>,
     pub assets_dir: PathBuf,
     pub https: bool,
@@ -58,6 +63,7 @@ impl AppState {
         Self {
             leptos,
             store,
+            agents: AgentImporter::new(syncer.importer().clone(), syncer.registry().clone()),
             syncer,
             search: Arc::default(),
             assets_dir,
@@ -86,6 +92,15 @@ impl AppState {
 
     /// Records a sign-in attempt for each key and returns false when any key is over the limit.
     pub fn allow_login_attempt(&self, keys: &[String]) -> bool {
+        self.allow_attempts(keys, LOGIN_ATTEMPTS, LOGIN_WINDOW)
+    }
+
+    /// Records an agent pairing attempt from `client` and returns false when it is over the limit.
+    pub fn allow_pair_attempt(&self, client: &str) -> bool {
+        self.allow_attempts(&[format!("pair:{client}")], PAIR_ATTEMPTS, PAIR_WINDOW)
+    }
+
+    fn allow_attempts(&self, keys: &[String], max: usize, window: Duration) -> bool {
         let Ok(mut map) = self.login_attempts.lock() else {
             return false;
         };
@@ -93,8 +108,8 @@ impl AppState {
         let mut allowed = true;
         for key in keys {
             let entry = map.entry(key.clone()).or_default();
-            entry.retain(|t| now.duration_since(*t) < LOGIN_WINDOW);
-            if entry.len() >= LOGIN_ATTEMPTS {
+            entry.retain(|t| now.duration_since(*t) < window);
+            if entry.len() >= max {
                 allowed = false;
             }
             entry.push(now);

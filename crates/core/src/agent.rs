@@ -1,4 +1,5 @@
-//! Wire format of the agent API (contracts/agent-api.md), shared by the server and the agent.
+//! Wire format of the agent API (contracts/agent-api.md), shared by the server and the agent. Dates are
+//! RFC 3339 strings.
 
 use crate::{AgentId, ProductKind};
 use serde::{Deserialize, Serialize};
@@ -90,6 +91,7 @@ impl Default for AgentConfig {
 pub struct SourceState {
     pub enabled: bool,
     pub detected: bool,
+    #[serde(default, with = "time::serde::rfc3339::option")]
     pub last_scan_at: Option<OffsetDateTime>,
 }
 
@@ -113,6 +115,7 @@ pub struct ReportItem {
     pub installed: bool,
     pub size_bytes: Option<u64>,
     pub playtime_minutes: Option<u32>,
+    #[serde(default, with = "time::serde::rfc3339::option")]
     pub last_played_at: Option<OffsetDateTime>,
     /// Only sent when the player allows it.
     pub install_path: Option<String>,
@@ -136,6 +139,7 @@ pub struct ReportAccount {
 pub struct Report {
     pub source: String,
     pub platform: String,
+    #[serde(with = "time::serde::rfc3339")]
     pub generated_at: OffsetDateTime,
     pub content_hash: String,
     pub accounts: Vec<ReportAccount>,
@@ -182,6 +186,21 @@ mod tests {
         for (_, p) in SOURCES.iter().filter(|(_, p)| *p != "*") {
             assert!(crate::platform::is_known(p), "{p}");
         }
+    }
+
+    #[test]
+    fn dates_travel_as_rfc3339() {
+        let item: ReportItem = serde_json::from_str(
+            r#"{"platform_game_id":"1","title":null,"installed":true,"size_bytes":null,
+                "playtime_minutes":null,"last_played_at":"2026-10-14T21:12:00Z"}"#,
+        )
+        .expect("parse");
+        assert_eq!(item.kind, ProductKind::Game);
+        let json = serde_json::to_string(&item).expect("json");
+        assert!(json.contains("\"2026-10-14T21:12:00Z\""), "{json}");
+        let missing: SourceState =
+            serde_json::from_str(r#"{"enabled":true,"detected":false}"#).expect("parse");
+        assert_eq!(missing.last_scan_at, None);
     }
 
     #[test]

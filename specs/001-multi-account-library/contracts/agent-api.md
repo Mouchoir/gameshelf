@@ -9,8 +9,10 @@
 - Every call except pairing sends `Authorization: Bearer <agent token>` and `X-Gameshelf-Agent-Version`.
 - Bodies may be gzip-encoded. Maximum body size: 5 MiB.
 - Version policy: within `v1`, changes are additive only (new optional fields, new endpoints). A server that no
-  longer supports an agent version answers `426 Upgrade Required` with the minimum version.
+  longer supports an agent version answers `426 Upgrade Required` with
+  `{"error": {"code": "upgrade_required", ...}, "min_version": "0.1.0"}`.
 - Errors use `{"error": {"code": "<snake_case>", "message": "<english text>"}}`.
+- Dates are RFC 3339 strings in UTC.
 - The server never connects to the agent; the agent polls.
 
 ## Pairing
@@ -48,17 +50,18 @@ Response `200`:
 ```json
 {
   "status": "active",
-  "schedule": "0 */6 * * *",
+  "scan_hours": 6,
   "send_install_paths": false,
   "sources": {
     "steam-local": { "enabled": true, "paths": [] },
     "battlenet-local": { "enabled": false, "paths": [] }
-  },
-  "login_requests": [
-    { "id": "0193f5d0-...", "platform": "epic", "authorize_url": "https://...", "capture": { "type": "json_page", "field": "authorizationCode" }, "expires_at": "2026-10-15T10:20:00Z" }
-  ]
+  }
 }
 ```
+
+`sources` always lists every source the server knows (`steam-local`, `epic-local`, `gog-galaxy-local`,
+`battlenet-local`, `ubisoft-local`, `launchers-local`); `paths` are extra folders the player added. `scan_hours`
+is between 1 and 168. When logins through the agent ship, a `login_requests` array is added (see below).
 
 `status` may be `paused` (the agent keeps running but sends nothing) or `revoked` (see below). Settings changed in
 the web app reach the agent at its next pull; settings changed on the agent are reported by heartbeat and shown in
@@ -83,14 +86,15 @@ Response `204`. Sent after each scan and at least every 6 hours.
 
 ### `POST /api/agent/v1/reports`
 
-One report per source per scan, always a full snapshot of what the source sees.
+One report per source and platform per scan, always a full snapshot of what the source sees. Single-platform
+sources send one report; `launchers-local` sends one per platform it recognized.
 
 ```json
 {
   "source": "steam-local",
+  "platform": "steam",
   "generated_at": "2026-10-15T06:00:02Z",
   "content_hash": "sha256:...",
-  "complete": true,
   "accounts": [
     {
       "external_account_id": "76561190000000001",
@@ -105,15 +109,24 @@ One report per source per scan, always a full snapshot of what the source sees.
 }
 ```
 
-- `accounts[].external_account_id` is set when the launcher stores the account id locally; otherwise items go in
-  `machine_items` and are matched to accounts the player connected for that platform.
-- `install_path` is included per item only when `send_install_paths` is true.
-- Response `202` with `{"result": "applied"}` or `{"result": "unchanged"}` when `content_hash` matches the last
-  report for that source.
+- `accounts[].external_account_id` is set when the launcher stores the account id locally. The server attaches
+  those items to the player's account with that id, creates an agent-fed account for the player when none
+  exists, and ignores accounts another profile holds. Items in `machine_items` go to the player's only account
+  on that platform, or to an account named after the agent when there are none or several.
+- `title` may be `null` when the launcher's files do not hold it; the server names the product from the
+  platform's public data (Steam store) or leaves it out.
+- Agent reports never remove games, never change how a game was acquired and never lower playtime: a launcher
+  only sees one machine.
+- `install_path` is included per item only when `send_install_paths` is true; the server drops it otherwise.
+- Response `202` with `{"result": "applied"}` (accepted, applied in the background) or `{"result": "unchanged"}`
+  when `content_hash` matches the last report for that source and platform. Errors: `400 unknown_source`,
+  `409 source_disabled`, `409 agent_paused`, `413 too_large`.
 
 A report never contains credentials, file contents, or data from disabled sources (FR-030).
 
 ## Browser logins through the agent
+
+Not offered yet: the endpoints below answer `404 unknown_request` until the agent application can capture logins.
 
 1. In the web app, the player chooses "Connect with agent <name>" for a platform. The server creates a login
    request (PKCE verifier kept server-side) that appears in the agent's next config pull.

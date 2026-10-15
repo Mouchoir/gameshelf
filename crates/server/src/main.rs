@@ -88,6 +88,7 @@ async fn main() {
         .route("/healthz", get(api::health::healthz))
         .route("/readyz", get(api::health::readyz))
         .route("/assets/{sha256}", get(api::assets::asset))
+        .nest("/api/agent/v1", gameshelf_app::server::agent_api::router())
         .route("/api/{*fn_name}", get(server_fn_handler).post(server_fn_handler))
         .leptos_routes_with_context(
             &state,

@@ -230,9 +230,9 @@ search and a game detail page.
 
 ### Server side
 
-- [ ] T091 [P] [US5] Write agent API tests (pairing code single use and 10-minute expiry, 5 attempts per 10 minutes, bearer auth, `426` for old versions, report `applied` vs `unchanged`, revoked agent gets `401 agent_revoked`) in `crates/server/tests/agent_api.rs`
+- [x] T091 [P] [US5] Write agent API tests (pairing code single use and 10-minute expiry, 5 attempts per 10 minutes, bearer auth, `426` for old versions, report `applied` vs `unchanged`, revoked agent gets `401 agent_revoked`) in `crates/app/tests/agent_api.rs`
 - [x] T092 [US5] Implement agent and pairing code repositories (token stored as SHA-256 hash, status `active`, `paused`, `revoked`) in `crates/store/src/repo/agents.rs`
-- [ ] T093 [US5] Implement `/api/agent/v1` endpoints (pair, config, heartbeat, reports, login result and decline, self delete) exactly as in contracts/agent-api.md in `crates/server/src/api/agent.rs`
+- [x] T093 [US5] Implement `/api/agent/v1` endpoints (pair, config, heartbeat, reports, login result and decline, self delete) exactly as in contracts/agent-api.md in `crates/app/src/server/agent_api.rs` (login result and decline answer `unknown_request` until T107)
 - [x] T094 [US5] Apply agent reports through the import pipeline (account matching by external id or by the player's connected accounts, install records per machine, `send_install_paths` honored) in `crates/sync/src/agent_reports.rs`
 - [ ] T095 [US5] Build the Agents page (create pairing code, list agents with last contact, sources, schedule, pause, revoke, login requests "Connect with agent") in `crates/app/src/routes/agents.rs`
 

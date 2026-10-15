@@ -1404,6 +1404,7 @@ name = "gameshelf-app"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "flate2",
  "gameshelf-connectors",
  "gameshelf-core",
  "gameshelf-notify",
@@ -1422,6 +1423,8 @@ dependencies = [
  "thiserror 2.0.21",
  "time",
  "tokio",
+ "tower",
+ "tower-http",
  "tower-sessions",
  "tracing",
  "uuid",
@@ -1455,6 +1458,7 @@ dependencies = [
  "deunicode",
  "nucleo-matcher",
  "serde",
+ "serde_json",
  "thiserror 2.0.21",
  "time",
  "uuid",

@@ -17,3 +17,6 @@ time = { workspace = true }
 thiserror = { workspace = true }
 deunicode = { workspace = true }
 nucleo-matcher = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
