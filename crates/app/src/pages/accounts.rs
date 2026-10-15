@@ -1,7 +1,7 @@
 //! Accounts: health, sync now, rename, disconnect, and the connection pages (US1, US3, FR-002 to FR-004).
 
 use crate::{
-    api::{ConnectWithKey, DisconnectAccount, RenameAccount, SyncNow, accounts, platforms},
+    api::{ConnectWithCode, ConnectWithKey, DisconnectAccount, RenameAccount, SyncNow, accounts, platforms},
     components::{PlatformIcon, StatusBadge, TierChip},
     format,
     i18n::*,
@@ -72,6 +72,9 @@ fn AccountItem(
     let last_sync = a.last_sync_at.map(format::date);
     let next_sync = a.next_sync_at.map(format::date_time);
     let needs_reconnect = a.status == AccountStatus::NeedsReconnect;
+    let expiring = (a.credential_expiring && !needs_reconnect)
+        .then(|| a.credential_expires_at.map(format::date))
+        .flatten();
     view! {
         <li class="account">
             <div class="account-main">
@@ -101,6 +104,10 @@ fn AccountItem(
             {needs_reconnect.then(|| {
                 let href = format!("/accounts/connect/{}", a.platform);
                 view! { <p class="warn-text">{t!(i18n, account_reconnect_hint)}" "<a href=href>{t!(i18n, accounts_connect)}</a></p> }
+            })}
+            {expiring.map(|d| {
+                let href = format!("/accounts/connect/{}", a.platform);
+                view! { <p class="warn-text">{t!(i18n, account_expires, date = move || d.clone())}" "<a href=href>{t!(i18n, accounts_connect)}</a></p> }
             })}
             <div class="actions">
                 <button type="button" disabled=a.syncing || !a.status.syncs()
@@ -188,6 +195,7 @@ pub fn ConnectPlatformPage() -> impl IntoView {
                 {move || list.get().map(|r| {
                     let found = r.ok().and_then(|l| l.into_iter().find(|p| p.key == key() && p.connectable));
                     match found {
+                        Some(p) if p.auth_kind == "browser_login" => view! { <BrowserConnectForm p/> }.into_any(),
                         Some(p) => view! { <ConnectForm p/> }.into_any(),
                         None => view! { <p>{t!(i18n, connect_error_unknown)}</p> }.into_any(),
                     }
@@ -241,21 +249,76 @@ fn ConnectForm(p: PlatformView) -> impl IntoView {
                 <span>{t!(i18n, connect_label)}</span>
                 <input maxlength="64" prop:value=move || label.get() on:input=move |ev| label.set(event_target_value(&ev))/>
             </label>
-            {move || result().map(|r| match r {
-                Ok(ConnectResult::Connected(_)) => view! {
-                    <p class="ok-text" role="status">{t!(i18n, connect_done)}" "<a href="/accounts">{t!(i18n, nav_accounts)}</a></p>
-                }.into_any(),
-                Ok(ConnectResult::Rejected(reason)) => view! {
-                    <p class="error" role="alert">{t!(i18n, connect_error_rejected, reason = move || reason.clone())}</p>
-                }.into_any(),
-                Ok(ConnectResult::Taken(holder)) => view! {
-                    <p class="error" role="alert">{t!(i18n, connect_error_taken, holder = move || holder.clone())}</p>
-                }.into_any(),
-                Ok(ConnectResult::Unknown) => view! { <p class="error" role="alert">{t!(i18n, connect_error_unknown)}</p> }.into_any(),
-                Err(_) => view! { <p class="error" role="alert">{t!(i18n, error_generic)}</p> }.into_any(),
-            })}
+            {move || result().map(|r| view! { <ConnectOutcome result=r/> })}
             <button type="submit" class="primary" disabled=move || action.pending().get()>{t!(i18n, connect_submit)}</button>
         </form>
+    }
+}
+
+/// Connection through the platform's own sign-in page, then pasting the result (FR-003).
+#[component]
+fn BrowserConnectForm(p: PlatformView) -> impl IntoView {
+    let i18n = use_i18n();
+    let action = ServerAction::<ConnectWithCode>::new();
+    let pasted = RwSignal::new(String::new());
+    let label = RwSignal::new(String::new());
+    let platform_key = p.key.clone();
+    let json_page = p.capture.as_deref() == Some("json_page");
+    let login_url = p.login_url.clone().unwrap_or_default();
+    let on_submit = move |ev: leptos::ev::SubmitEvent| {
+        ev.prevent_default();
+        action.dispatch(ConnectWithCode {
+            platform: platform_key.clone(),
+            pasted: pasted.get_untracked(),
+            label: label.get_untracked(),
+        });
+    };
+    view! {
+        <h1><PlatformIcon key=p.key.clone() large=true/>" "{p.name.clone()}</h1>
+        <ol class="steps">
+            <li>
+                <p>{t!(i18n, connect_browser_step1)}</p>
+                <a class="button" href=login_url target="_blank" rel="noopener noreferrer">{t!(i18n, connect_browser_open)}</a>
+            </li>
+            <li><p>{if json_page { t!(i18n, connect_browser_step2_json).into_any() } else { t!(i18n, connect_browser_step2_url).into_any() }}</p></li>
+            <li><p>{t!(i18n, connect_browser_step3)}</p></li>
+        </ol>
+        <form class="form" on:submit=on_submit>
+            <label>
+                <span>{t!(i18n, connect_browser_paste)}</span>
+                <textarea rows="3" required spellcheck="false" autocomplete="off"
+                    prop:value=move || pasted.get() on:input=move |ev| pasted.set(event_target_value(&ev))></textarea>
+            </label>
+            <label>
+                <span>{t!(i18n, connect_label)}</span>
+                <input maxlength="64" prop:value=move || label.get() on:input=move |ev| label.set(event_target_value(&ev))/>
+            </label>
+            {move || action.value().get().map(|r| view! { <ConnectOutcome result=r/> })}
+            <button type="submit" class="primary" disabled=move || action.pending().get()>{t!(i18n, connect_submit)}</button>
+        </form>
+    }
+}
+
+/// Message shown after a connection attempt.
+#[component]
+fn ConnectOutcome(result: Result<ConnectResult, ServerFnError>) -> impl IntoView {
+    let i18n = use_i18n();
+    match result {
+        Ok(ConnectResult::Connected(_)) => view! {
+            <p class="ok-text" role="status">{t!(i18n, connect_done)}" "<a href="/accounts">{t!(i18n, nav_accounts)}</a></p>
+        }
+        .into_any(),
+        Ok(ConnectResult::Rejected(reason)) => view! {
+            <p class="error" role="alert">{t!(i18n, connect_error_rejected, reason = move || reason.clone())}</p>
+        }
+        .into_any(),
+        Ok(ConnectResult::Taken(holder)) => view! {
+            <p class="error" role="alert">{t!(i18n, connect_error_taken, holder = move || holder.clone())}</p>
+        }
+        .into_any(),
+        Ok(ConnectResult::Unknown) => view! { <p class="error" role="alert">{t!(i18n, connect_error_unknown)}</p> }.into_any(),
+        Ok(ConnectResult::NoCode) => view! { <p class="error" role="alert">{t!(i18n, connect_error_no_code)}</p> }.into_any(),
+        Err(_) => view! { <p class="error" role="alert">{t!(i18n, error_generic)}</p> }.into_any(),
     }
 }
 

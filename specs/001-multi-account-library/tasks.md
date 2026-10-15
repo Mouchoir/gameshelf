@@ -166,7 +166,7 @@ search and a game detail page.
 - [ ] T064 [P] [US3] Write Playwright journeys V4 to V6 in `e2e/tests/us3-sync.spec.ts`
 - [X] T065 [US3] Implement the job runner (jobs table, `locked_until` leases, global concurrency limit, per-platform semaphore, cancellation on shutdown) in `crates/sync/src/runner.rs`
 - [X] T066 [US3] Implement the scheduler (croner, instance default `GAMESHELF_SYNC_SCHEDULE` in `TZ`, per-account override, startup catch-up of missed runs) in `crates/sync/src/scheduler.rs`
-- [ ] T067 [US3] Implement credential refresh before each run, persistence of rotated credentials, expiry detection within 7 days and status transitions in `crates/sync/src/health.rs`
+- [X] T067 [US3] Implement credential refresh before each run, persistence of rotated credentials, expiry detection within 7 days and status transitions in `crates/sync/src/health.rs`
 - [X] T068 [US3] Record sync runs (scope, trigger, status, counts, redacted error of at most 500 chars, `complete_listing`) and emit activity events (`game_added`, `game_unavailable`, `account_needs_reconnect`, `account_degraded`, `sync_failed`) in `crates/sync/src/apply.rs`
 - [X] T069 [US3] Write daily playtime snapshots when values change (FR-018) in `crates/sync/src/playtime.rs`
 - [X] T070 [US3] Add "Sync now" for one account, one platform and everything, plus run history and health badges with platform-specific reconnect steps on `crates/app/src/routes/accounts.rs`
@@ -197,12 +197,12 @@ search and a game detail page.
 
 **Goal**: two browser-login platforms with the paste-code flow.
 
-- [ ] T078 [P] [US1] Record and anonymize Epic fixtures (token exchange and refresh, library items with cursor paging, catalog bulk items, playtime) in `crates/connectors/tests/fixtures/epic/`
-- [ ] T079 [P] [US1] Record and anonymize GOG fixtures (token and refresh, galaxy-library releases, embed games, stats page) in `crates/connectors/tests/fixtures/gog/`
-- [ ] T080 [P] [US1] Write Epic and GOG contract tests in `crates/connectors/tests/epic.rs` and `crates/connectors/tests/gog.rs`
-- [ ] T081 [US1] Implement the Epic connector (authorization code exchange `eg1`, refresh and persistence of rotated tokens, library items with paging, catalog metadata, playtime, achievements) in `crates/connectors/src/epic/`
-- [ ] T082 [US1] Implement the GOG connector (code exchange with the Galaxy client, refresh, owned releases, playtime and achievements where available) in `crates/connectors/src/gog/`
-- [ ] T083 [US1] Implement the browser-login connection flow in the web app (login link, paste field for code or redirect URL, PKCE and state kept server-side, validation, reconnect reuse) in `crates/app/src/routes/connect.rs` and `crates/server/src/auth/platform_login.rs`
+- [X] T078 [P] [US1] Record and anonymize Epic fixtures (token exchange and refresh, library items with cursor paging, catalog bulk items, playtime) in `crates/connectors/tests/fixtures/epic/`
+- [X] T079 [P] [US1] Record and anonymize GOG fixtures (token and refresh, galaxy-library releases, embed games, stats page) in `crates/connectors/tests/fixtures/gog/`
+- [X] T080 [P] [US1] Write Epic and GOG contract tests in `crates/connectors/tests/epic.rs` and `crates/connectors/tests/gog.rs`
+- [X] T081 [US1] Implement the Epic connector (authorization code exchange `eg1`, refresh and persistence of rotated tokens, library items with paging, catalog metadata, playtime, achievements) in `crates/connectors/src/epic/`
+- [X] T082 [US1] Implement the GOG connector (code exchange with the Galaxy client, refresh, owned releases, playtime and achievements where available) in `crates/connectors/src/gog/`
+- [X] T083 [US1] Implement the browser-login connection flow in the web app (login link, paste field for code or redirect URL, PKCE and state kept server-side, validation, reconnect reuse) in `crates/app/src/routes/connect.rs` and `crates/server/src/auth/platform_login.rs`
 
 ---
 

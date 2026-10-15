@@ -1,0 +1,5 @@
+[
+  { "id": 1000000001, "title": "Cobalt Orchard", "game_type": "game", "images": { "background": "//images.example.com/bg1.jpg", "logo2x": "//images.example.com/logo1.jpg", "icon": "//images.example.com/icon1.png" } },
+  { "id": 1000000002, "title": "Cobalt Orchard: Soundtrack", "game_type": "dlc", "images": {} },
+  { "id": 1000000003, "title": "Moss & Mortar", "game_type": "game" }
+]

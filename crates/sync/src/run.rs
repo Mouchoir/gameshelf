@@ -2,7 +2,9 @@
 //! (FR-019 to FR-025, research D6).
 
 use crate::{ImportReport, Importer, SyncError};
-use gameshelf_connectors::{AccountRef, Connector, ConnectorError, Context, CredentialPayload, Registry};
+use gameshelf_connectors::{
+    AccountRef, AuthMethod, Connector, ConnectorError, Context, CredentialPayload, Registry,
+};
 use gameshelf_core::{
     AccountId,
     account_status::{AccountEvent, AccountStatus, transition},
@@ -280,13 +282,64 @@ impl Syncer {
         Ok(())
     }
 
-    /// Validates a credential with the platform and connects the account (FR-003). Returns the account id.
+    /// Validates a key-based credential with the platform and connects the account (FR-003).
     pub async fn connect(
         &self,
         profile: gameshelf_core::ProfileId,
         platform: &str,
         payload: CredentialPayload,
         label: Option<&str>,
+    ) -> Result<Result<AccountId, ConnectError>, SyncError> {
+        self.connect_payload(profile, platform, payload, label, CredentialKind::ApiKey, None)
+            .await
+    }
+
+    /// Connects an account from what the player pasted after a browser login: the final page's URL, its JSON
+    /// or the bare code (contracts/connector.md section 3).
+    pub async fn connect_with_code(
+        &self,
+        profile: gameshelf_core::ProfileId,
+        platform: &str,
+        pasted: &str,
+        label: Option<&str>,
+    ) -> Result<Result<AccountId, ConnectError>, SyncError> {
+        let Some(connector) = self.registry.get(platform) else {
+            return Ok(Err(ConnectError::UnknownPlatform));
+        };
+        let capture = connector.descriptor().auth.iter().find_map(|a| match a {
+            AuthMethod::BrowserLogin { capture, .. } => Some(*capture),
+            _ => None,
+        });
+        let Some(capture) = capture else {
+            return Ok(Err(ConnectError::UnknownPlatform));
+        };
+        let Some(code) = capture.extract(pasted) else {
+            return Ok(Err(ConnectError::NoCode));
+        };
+        let cx = self.context(connector.as_ref());
+        let refreshed = match connector.exchange_code(&cx, &code).await {
+            Ok(r) => r,
+            Err(e) => return Ok(Err(ConnectError::Rejected(e))),
+        };
+        self.connect_payload(
+            profile,
+            platform,
+            refreshed.payload,
+            label,
+            CredentialKind::Oauth,
+            refreshed.expires_at,
+        )
+        .await
+    }
+
+    async fn connect_payload(
+        &self,
+        profile: gameshelf_core::ProfileId,
+        platform: &str,
+        payload: CredentialPayload,
+        label: Option<&str>,
+        kind: CredentialKind,
+        expires_at: Option<time::OffsetDateTime>,
     ) -> Result<Result<AccountId, ConnectError>, SyncError> {
         let Some(connector) = self.registry.get(platform) else {
             return Ok(Err(ConnectError::UnknownPlatform));
@@ -297,6 +350,7 @@ impl Syncer {
             Err(e) => return Ok(Err(ConnectError::Rejected(e))),
         };
         let store = self.importer.store();
+        let bytes = serde_json::to_vec(&payload).unwrap_or_default();
         if let Some(existing) = store
             .find_account_by_external(platform, &identity.external_account_id)
             .await?
@@ -310,9 +364,8 @@ impl Syncer {
                 return Ok(Err(ConnectError::Taken(holder)));
             }
             // Reconnecting an existing account: replace its credential and reactivate it.
-            let bytes = serde_json::to_vec(&payload).unwrap_or_default();
             store
-                .put_credential(existing.id, CredentialKind::ApiKey, &bytes, None)
+                .put_credential(existing.id, kind, &bytes, expires_at)
                 .await?;
             store
                 .set_account_status(
@@ -340,10 +393,7 @@ impl Syncer {
             }
             Err(e) => return Err(e.into()),
         };
-        let bytes = serde_json::to_vec(&payload).unwrap_or_default();
-        store
-            .put_credential(account.id, CredentialKind::ApiKey, &bytes, None)
-            .await?;
+        store.put_credential(account.id, kind, &bytes, expires_at).await?;
         Ok(Ok(account.id))
     }
 }
@@ -352,6 +402,8 @@ impl Syncer {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ConnectError {
     UnknownPlatform,
+    /// Nothing that looks like an authorization code was pasted.
+    NoCode,
     Rejected(ConnectorError),
     /// Already connected by another profile (its display name).
     Taken(String),

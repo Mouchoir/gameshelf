@@ -4,8 +4,10 @@
 //! (Constitution, Principle IV).
 
 pub mod descriptor;
+pub mod epic;
 pub mod error;
 pub mod fake;
+pub mod gog;
 pub mod http;
 pub mod model;
 pub mod steam;
@@ -28,6 +30,11 @@ pub trait Connector: Send + Sync {
         cx: &Context,
         cred: &CredentialPayload,
     ) -> Result<AccountIdentity, ConnectorError>;
+
+    /// Exchanges the authorization code of a browser login for a credential (contracts/connector.md section 3).
+    async fn exchange_code(&self, _cx: &Context, _code: &str) -> Result<Refreshed, ConnectorError> {
+        Err(ConnectorError::Unsupported)
+    }
 
     /// Refreshes a rolling credential. `Ok(None)` means the credential does not need refreshing.
     async fn refresh(
@@ -87,6 +94,8 @@ impl Registry {
     pub fn builtin() -> Self {
         let mut r = Self::default();
         r.register(Arc::new(steam::SteamConnector::default()));
+        r.register(Arc::new(epic::EpicConnector::default()));
+        r.register(Arc::new(gog::GogConnector::default()));
         r
     }
 

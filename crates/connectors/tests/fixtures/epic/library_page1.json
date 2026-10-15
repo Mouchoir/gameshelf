@@ -1,0 +1,8 @@
+{
+  "responseMetadata": { "nextCursor": "cursor-2", "stateToken": "s" },
+  "records": [
+    { "namespace": "ns-one", "catalogItemId": "cat-game-1", "appName": "AppOne", "sandboxType": "PUBLIC", "recordType": "APPLICATION" },
+    { "namespace": "ns-one", "catalogItemId": "cat-dlc-1", "appName": "AppOneDlc", "sandboxType": "PUBLIC", "recordType": "APPLICATION" },
+    { "namespace": "ue", "catalogItemId": "cat-engine", "appName": "UE_5.4", "sandboxType": "PUBLIC", "recordType": "APPLICATION" }
+  ]
+}

@@ -26,6 +26,37 @@ pub enum CodeCapture {
     LocalCallback { port: u16 },
 }
 
+impl CodeCapture {
+    /// Extracts the authorization code from what the player pasted: the final page's URL, its JSON, or the
+    /// bare code. Returns `None` when nothing usable is found.
+    pub fn extract(&self, pasted: &str) -> Option<String> {
+        let text = pasted.trim();
+        if text.is_empty() {
+            return None;
+        }
+        let from_query = |param: &str| -> Option<String> {
+            let url = url::Url::parse(text).ok()?;
+            url.query_pairs()
+                .find(|(k, _)| k == param)
+                .map(|(_, v)| v.into_owned())
+        };
+        let found = match self {
+            CodeCapture::RedirectQuery { param } => from_query(param),
+            CodeCapture::JsonPage { field } => serde_json::from_str::<serde_json::Value>(text)
+                .ok()
+                .and_then(|v| v.get(*field).and_then(|c| c.as_str()).map(str::to_string)),
+            CodeCapture::LocalCallback { .. } => from_query("code"),
+        };
+        found.or_else(|| {
+            // A bare code: no spaces, quotes or URL punctuation.
+            let bare = text
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
+            (bare && text.len() >= 8).then(|| text.to_string())
+        })
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AuthMethod {
@@ -33,7 +64,9 @@ pub enum AuthMethod {
         fields: &'static [KeyField],
         help_url: &'static str,
     },
+    /// The player signs in on the platform's own page, then the code is captured by the agent or pasted.
     BrowserLogin {
+        login_url: &'static str,
         capture: CodeCapture,
     },
     SessionCookie {
@@ -48,6 +81,33 @@ pub enum AuthMethod {
 pub struct RateLimit {
     pub requests: u32,
     pub per: Duration,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codes_are_extracted_from_urls_json_or_bare_text() {
+        let q = CodeCapture::RedirectQuery { param: "code" };
+        assert_eq!(
+            q.extract("https://embed.gog.com/on_login_success?origin=client&code=AbC123xyz_-"),
+            Some("AbC123xyz_-".into())
+        );
+        assert_eq!(q.extract("  AbC123xyz456  "), Some("AbC123xyz456".into()));
+        assert_eq!(q.extract("https://example.com/?nothing=here"), None);
+        assert_eq!(q.extract("short"), None);
+
+        let j = CodeCapture::JsonPage {
+            field: "authorizationCode",
+        };
+        assert_eq!(
+            j.extract(r#"{"redirectUrl":"https://x","authorizationCode":"0123456789abcdef","sid":null}"#),
+            Some("0123456789abcdef".into())
+        );
+        assert_eq!(j.extract("0123456789abcdef"), Some("0123456789abcdef".into()));
+        assert_eq!(j.extract("not a code at all"), None);
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]

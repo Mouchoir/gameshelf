@@ -1,0 +1,7 @@
+{
+  "responseMetadata": { "stateToken": "s" },
+  "records": [
+    { "namespace": "ns-two", "catalogItemId": "cat-game-2", "appName": "AppTwo", "sandboxType": "PUBLIC", "recordType": "APPLICATION", "unknown_field": 1 },
+    { "namespace": "ns-three", "catalogItemId": "cat-asset", "appName": "MarketAsset", "sandboxType": "PUBLIC", "recordType": "APPLICATION" }
+  ]
+}

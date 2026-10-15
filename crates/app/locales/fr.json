@@ -106,5 +106,13 @@
   "activity_account_needs_reconnect": "Compte à reconnecter",
   "activity_account_degraded": "La synchro du compte est en difficulté",
   "activity_agent_silent": "Agent silencieux",
-  "activity_sync_failed": "Échec de synchro"
+  "activity_sync_failed": "Échec de synchro",
+  "connect_browser_step1": "1. Ouvrez la page de connexion et connectez-vous avec le compte à ajouter.",
+  "connect_browser_open": "Ouvrir la page de connexion",
+  "connect_browser_step2_json": "2. Une fois connecté, la page affiche un court texte qui commence par {\"redirectUrl\". Copiez-le en entier (ou seulement la valeur authorizationCode).",
+  "connect_browser_step2_url": "2. Une fois connecté, vous arrivez sur une page presque vide. Copiez son adresse complète depuis la barre d'adresse.",
+  "connect_browser_step3": "3. Collez-le ci-dessous dans les minutes qui suivent : le code expire vite.",
+  "connect_browser_paste": "Ce que vous avez copié",
+  "connect_error_no_code": "Aucun code de connexion dans ce que vous avez collé. Copiez tout le texte ou toute l'adresse de la page et réessayez.",
+  "account_expires": "À reconnecter avant le {{ date }}"
 }

@@ -113,10 +113,10 @@ pub async fn platforms() -> Result<Vec<PlatformView>, ServerFnError> {
         .filter(|p| p.key != "manual")
         .map(|p| {
             let connector = registry.get(p.key);
-            let (fields, help_url) = match connector
+            let auth = connector
                 .as_ref()
-                .and_then(|c| c.descriptor().auth.first().copied())
-            {
+                .and_then(|c| c.descriptor().auth.first().copied());
+            let (fields, help_url, auth_kind, login_url, capture) = match auth {
                 Some(AuthMethod::ApiKey { fields, help_url }) => (
                     fields
                         .iter()
@@ -127,8 +127,24 @@ pub async fn platforms() -> Result<Vec<PlatformView>, ServerFnError> {
                         })
                         .collect(),
                     Some(help_url.to_string()),
+                    "api_key",
+                    None,
+                    None,
                 ),
-                _ => (Vec::new(), None),
+                Some(AuthMethod::BrowserLogin { login_url, capture }) => (
+                    Vec::new(),
+                    None,
+                    "browser_login",
+                    Some(login_url.to_string()),
+                    Some(
+                        match capture {
+                            gameshelf_connectors::CodeCapture::JsonPage { .. } => "json_page",
+                            _ => "redirect_query",
+                        }
+                        .to_string(),
+                    ),
+                ),
+                _ => (Vec::new(), None, "none", None, None),
             };
             PlatformView {
                 key: p.key.into(),
@@ -139,6 +155,9 @@ pub async fn platforms() -> Result<Vec<PlatformView>, ServerFnError> {
                 agent_only: !p.remote && p.local,
                 fields,
                 help_url,
+                auth_kind: auth_kind.to_string(),
+                login_url,
+                capture,
             }
         })
         .collect())
@@ -169,6 +188,35 @@ pub async fn connect_with_key(
         Err(ConnectError::Rejected(e)) => Ok(ConnectResult::Rejected(e.to_string())),
         Err(ConnectError::Taken(holder)) => Ok(ConnectResult::Taken(holder)),
         Err(ConnectError::UnknownPlatform) => Ok(ConnectResult::Unknown),
+        Err(ConnectError::NoCode) => Ok(ConnectResult::NoCode),
+    }
+}
+
+/// Connects an account from what the player pasted after signing in on the platform (FR-003).
+#[server]
+pub async fn connect_with_code(
+    platform: String,
+    pasted: String,
+    label: String,
+) -> Result<ConnectResult, ServerFnError> {
+    use gameshelf_sync::ConnectError;
+    let profile = require_profile().await?;
+    let st = state()?;
+    let label = Some(label.trim()).filter(|l| !l.is_empty());
+    match st
+        .syncer
+        .connect_with_code(profile.id, &platform, &pasted, label)
+        .await
+        .map_err(internal)?
+    {
+        Ok(account) => {
+            st.spawn_sync(account, gameshelf_store::RunTrigger::Manual);
+            Ok(ConnectResult::Connected(account))
+        }
+        Err(ConnectError::Rejected(e)) => Ok(ConnectResult::Rejected(e.to_string())),
+        Err(ConnectError::Taken(holder)) => Ok(ConnectResult::Taken(holder)),
+        Err(ConnectError::UnknownPlatform) => Ok(ConnectResult::Unknown),
+        Err(ConnectError::NoCode) => Ok(ConnectResult::NoCode),
     }
 }
 
@@ -194,6 +242,12 @@ pub async fn accounts() -> Result<Vec<AccountView>, ServerFnError> {
         let last_error = last
             .filter(|r| r.error_kind.is_some())
             .and_then(|r| r.error_message);
+        let credential_expires_at = st
+            .store
+            .credential_meta(a.id)
+            .await
+            .map_err(internal)?
+            .and_then(|m| m.expires_at);
         out.push(AccountView {
             id: a.id,
             platform_name: gameshelf_core::platform::platform(&a.platform)
@@ -206,6 +260,9 @@ pub async fn accounts() -> Result<Vec<AccountView>, ServerFnError> {
             status: a.status,
             games,
             last_sync_at: a.last_sync_at,
+            credential_expiring: credential_expires_at
+                .is_some_and(|t| t - time::OffsetDateTime::now_utc() < time::Duration::days(7)),
+            credential_expires_at,
             next_sync_at: if a.status.syncs() && a.sync_enabled {
                 st.next_scheduled()
             } else {

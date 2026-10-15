@@ -1,0 +1,16 @@
+{
+  "cat-game-1": {
+    "id": "cat-game-1", "title": "Starlight Harbor",
+    "keyImages": [
+      { "type": "DieselGameBoxTall", "url": "https://cdn.example.com/epic/tall.jpg" },
+      { "type": "DieselGameBox", "url": "https://cdn.example.com/epic/wide.jpg" }
+    ],
+    "categories": [ { "path": "games" }, { "path": "applications" } ]
+  },
+  "cat-dlc-1": {
+    "id": "cat-dlc-1", "title": "Starlight Harbor - Tide Pack",
+    "keyImages": [],
+    "categories": [ { "path": "addons" } ],
+    "mainGameItem": { "id": "cat-game-1", "namespace": "ns-one" }
+  }
+}

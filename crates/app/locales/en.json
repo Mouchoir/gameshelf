@@ -106,5 +106,13 @@
   "activity_account_needs_reconnect": "Account needs reconnecting",
   "activity_account_degraded": "Account sync is having trouble",
   "activity_agent_silent": "Agent silent",
-  "activity_sync_failed": "Sync failed"
+  "activity_sync_failed": "Sync failed",
+  "connect_browser_step1": "1. Open the sign-in page and sign in with the account you want to connect.",
+  "connect_browser_open": "Open the sign-in page",
+  "connect_browser_step2_json": "2. Once signed in, the page shows a short text that starts with {\"redirectUrl\". Copy all of it (or only the authorizationCode value).",
+  "connect_browser_step2_url": "2. Once signed in, you land on an almost empty page. Copy its full address from the address bar.",
+  "connect_browser_step3": "3. Paste it below within a few minutes: the code expires quickly.",
+  "connect_browser_paste": "What you copied",
+  "connect_error_no_code": "No sign-in code found in what you pasted. Copy the whole page text or address and try again.",
+  "account_expires": "Reconnect before {{ date }}"
 }

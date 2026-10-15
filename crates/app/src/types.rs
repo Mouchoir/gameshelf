@@ -47,6 +47,12 @@ pub struct PlatformView {
     pub agent_only: bool,
     pub fields: Vec<FieldView>,
     pub help_url: Option<String>,
+    /// `api_key`, `browser_login` or `none`.
+    pub auth_kind: String,
+    /// Sign-in page of a browser login.
+    pub login_url: Option<String>,
+    /// What the player pastes after a browser login: `json_page` or `redirect_query`.
+    pub capture: Option<String>,
 }
 
 /// A connected account as shown on the Accounts page.
@@ -61,6 +67,10 @@ pub struct AccountView {
     pub games: i64,
     pub last_sync_at: Option<OffsetDateTime>,
     pub next_sync_at: Option<OffsetDateTime>,
+    /// When the stored credential stops working, when the platform says so.
+    pub credential_expires_at: Option<OffsetDateTime>,
+    /// The credential expires within 7 days (FR-023).
+    pub credential_expiring: bool,
     pub last_error: Option<String>,
     pub syncing: bool,
 }
@@ -115,4 +125,5 @@ pub enum ConnectResult {
     Rejected(String),
     Taken(String),
     Unknown,
+    NoCode,
 }

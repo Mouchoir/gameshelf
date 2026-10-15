@@ -6,6 +6,8 @@ all-features = false
 [advisories]
 version = 2
 yanked = "deny"
+# Unmaintained notices fail the build for our direct dependencies only; transitive ones are tracked upstream.
+unmaintained = "workspace"
 
 [licenses]
 version = 2
