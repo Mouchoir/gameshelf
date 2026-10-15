@@ -20,6 +20,7 @@ pub use repo::{
     activity::{ActivityEvent, ActivityKind},
     catalog::{GameSummary, NewProduct, Product},
     credentials::{CredentialKind, CredentialMeta, OpenedCredential},
+    enrichment::EnrichmentValue,
     ownership::{ApplyOutcome, OwnershipSource, SnapshotItem},
     profiles::{NewProfile, Profile},
     runs::{RunCapability, RunResult, RunStatus, RunTrigger, SyncRun},

@@ -530,17 +530,7 @@ impl Store {
     }
 }
 
-/// Facts about a game shown on its detail page.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct GameSummary {
-    pub id: GameId,
-    pub title: String,
-    pub release_year: Option<i32>,
-    pub kind: String,
-    pub parent: Option<GameId>,
-    pub description: Option<String>,
-    pub cover: Option<String>,
-}
+pub use gameshelf_core::view::GameSummary;
 
 #[cfg(test)]
 mod tests {

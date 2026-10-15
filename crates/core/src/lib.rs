@@ -9,5 +9,6 @@ pub mod model;
 pub mod normalize;
 pub mod platform;
 pub mod search;
+pub mod view;
 
 pub use model::*;
