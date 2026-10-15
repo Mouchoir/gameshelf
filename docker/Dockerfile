@@ -12,7 +12,8 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
 COPY --from=planner /src/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json --workspace --exclude gameshelf-frontend
+# Dependencies of the server, then of the browser bundle (cargo-leptos builds it in target/front).
+RUN cargo chef cook --release --recipe-path recipe.json -p gameshelf  && cargo chef cook --profile wasm-release --target wasm32-unknown-unknown --target-dir target/front       --recipe-path recipe.json -p gameshelf-frontend
 COPY . .
 RUN cargo leptos build --release
 

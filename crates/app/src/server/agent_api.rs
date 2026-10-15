@@ -67,16 +67,6 @@ fn bad_json(e: JsonRejection) -> Response {
     error(StatusCode::BAD_REQUEST, "invalid_request", &e.body_text())
 }
 
-/// Client address for rate limiting: the first `X-Forwarded-For` hop when a proxy set it.
-fn client_key(headers: &HeaderMap) -> String {
-    headers
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
-        .map(|v| v.trim().to_string())
-        .unwrap_or_else(|| "direct".to_string())
-}
-
 /// An authenticated, non-revoked agent.
 pub struct AgentAuth(pub Agent);
 
@@ -138,7 +128,7 @@ async fn pair(
     headers: HeaderMap,
     body: Result<Json<PairRequest>, JsonRejection>,
 ) -> Response {
-    if !st.allow_pair_attempt(&client_key(&headers)) {
+    if !st.allow_pair_attempt(&super::auth::client_key_from(&headers)) {
         return error(
             StatusCode::TOO_MANY_REQUESTS,
             "too_many_attempts",

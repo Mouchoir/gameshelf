@@ -74,10 +74,25 @@ pub async fn client_key() -> String {
     let headers = leptos_axum::extract::<axum::http::HeaderMap>()
         .await
         .unwrap_or_default();
-    headers
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.split(',').next())
-        .map(|v| v.trim().to_string())
+    client_key_from(&headers)
+}
+
+/// Client address for rate limiting, from request headers. Behind Cloudflare, `CF-Connecting-IP` is set by the
+/// edge and cannot be forged through it, unlike the first `X-Forwarded-For` hop, which the client chooses.
+pub fn client_key_from(headers: &axum::http::HeaderMap) -> String {
+    let header = |name: &str| {
+        headers
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+    };
+    header("cf-connecting-ip")
+        .or_else(|| {
+            header("x-forwarded-for")
+                .and_then(|v| v.rsplit(',').next())
+                .map(str::trim)
+        })
+        .map(str::to_string)
         .unwrap_or_else(|| "direct".to_string())
 }

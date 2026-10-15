@@ -19,6 +19,13 @@ use tower::ServiceExt;
 
 const VERSION: &str = "0.1.0";
 
+/// A different forged first hop on every request: it must not change the rate-limit key.
+fn rand_octet() -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static N: AtomicU32 = AtomicU32::new(1);
+    N.fetch_add(1, Ordering::Relaxed) % 250 + 1
+}
+
 struct Api {
     app: Router,
     store: Store,
@@ -99,7 +106,10 @@ async fn send(api: &Api, c: Call<'_>) -> (StatusCode, Value) {
     let mut req = Request::builder()
         .method(c.method)
         .uri(format!("/api/agent/v1{}", c.path))
-        .header("x-forwarded-for", c.client);
+        .header(
+            "x-forwarded-for",
+            format!("203.0.113.{}, {}", rand_octet(), c.client),
+        );
     if let Some(v) = c.version {
         req = req.header(agent_api::VERSION_HEADER, v);
     }
