@@ -250,10 +250,10 @@ search and a game detail page.
 ### Agent application
 
 - [ ] T104 [US5] Scaffold the Tauri 2 agent (tray icon, single instance, autostart plugin off by default, Windows NSIS and MSI plus Linux AppImage and deb bundles) in `crates/agent/` and its Leptos UI in `crates/agent/ui/`
-- [ ] T105 [US5] Implement the first-run wizard (detect launchers, show what will be sent with a preview, ask at most three questions: server URL, pairing code, autostart and schedule) in `crates/agent/src/wizard.rs` and `crates/agent/ui/src/wizard.rs`
-- [ ] T106 [US5] Implement the API client, keychain token storage, config pull, heartbeat, scans per schedule, gzip reports with content hash, pause and per-source toggles, revocation handling in `crates/agent/src/client.rs` and `crates/agent/src/scan.rs`
+- [x] T105 [US5] Implement the first-run wizard (detect launchers, show what will be sent with a preview, ask at most three questions: server URL, pairing code, autostart; the schedule is set in the web app) as `gameshelf-agent setup` in `crates/agent/src/main.rs`; the Tauri window of T104 reuses the same steps
+- [x] T106 [US5] Implement the API client, token storage (user-only configuration file; OS keychain with T104), config pull, heartbeat, scans per schedule, gzip reports with content hash, pause and per-source toggles, revocation handling in `crates/agent/src/client.rs`, `crates/agent/src/service.rs` and `crates/agent/src/scan.rs`
 - [ ] T107 [US5] Implement webview login capture (prompt before opening, `RedirectQuery`, `JsonPage` and `LocalCallback` capture, send only the code) in `crates/agent/src/login.rs`
-- [ ] T108 [US5] Implement headless mode (`--headless`, configuration file, no UI) in `crates/agent/src/headless.rs`
+- [x] T108 [US5] Implement headless mode (`gameshelf-agent run`, configuration file, no UI; autostart through the Windows Run key or a systemd user service) in `crates/agent/src/service.rs` and `crates/agent/src/autostart.rs`
 - [ ] T109 [P] [US5] Add agent installer builds for Windows and Linux to `.github/workflows/release.yml`
 
 **Checkpoint**: V8 and V9 pass on Windows and Linux.

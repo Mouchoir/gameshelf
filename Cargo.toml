@@ -29,6 +29,7 @@ gameshelf-metadata = { path = "crates/metadata" }
 gameshelf-notify = { path = "crates/notify" }
 gameshelf-sync = { path = "crates/sync" }
 gameshelf-local = { path = "crates/local" }
+gameshelf-agent = { path = "crates/agent" }
 gameshelf-app = { path = "crates/app", default-features = false }
 
 # Web
@@ -77,6 +78,8 @@ chrono-tz = { version = "0.10" }
 nucleo-matcher = { version = "0.3" }
 deunicode = { version = "1" }
 url = { version = "2", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+flate2 = { version = "1" }
 
 # Tests
 insta = { version = "1", features = ["json"] }

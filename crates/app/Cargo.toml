@@ -65,4 +65,4 @@ ssr = [
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }
 secrecy = { workspace = true }
-flate2 = { version = "1" }
+flate2 = { workspace = true }
