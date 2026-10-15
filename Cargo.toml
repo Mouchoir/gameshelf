@@ -1,0 +1,108 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/Mouchoir/gameshelf"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "allow"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
+
+[workspace.dependencies]
+# Internal crates
+gameshelf-core = { path = "crates/core" }
+gameshelf-store = { path = "crates/store" }
+gameshelf-connectors = { path = "crates/connectors" }
+gameshelf-metadata = { path = "crates/metadata" }
+gameshelf-notify = { path = "crates/notify" }
+gameshelf-sync = { path = "crates/sync" }
+gameshelf-app = { path = "crates/app", default-features = false }
+
+# Web
+leptos = { version = "0.8" }
+leptos_router = { version = "0.8" }
+leptos_meta = { version = "0.8" }
+leptos_axum = { version = "0.8" }
+axum = { version = "0.8", features = ["macros"] }
+tower = { version = "0.5" }
+tower-http = { version = "0.6", features = ["fs", "trace", "compression-gzip", "set-header"] }
+tower-sessions = { version = "0.15" }
+wasm-bindgen = { version = "0.2" }
+console_error_panic_hook = { version = "0.1" }
+
+# Runtime and data
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time", "sync", "fs"] }
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "macros", "migrate", "uuid", "time", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1" }
+uuid = { version = "1", features = ["v7", "serde"] }
+time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
+thiserror = { version = "2" }
+async-trait = { version = "0.1" }
+
+# Security
+argon2 = { version = "0.6" }
+chacha20poly1305 = { version = "0.11" }
+secrecy = { version = "0.10", features = ["serde"] }
+getrandom = { version = "0.4" }
+sha2 = { version = "0.11" }
+base64 = { version = "0.22" }
+zeroize = { version = "1" }
+
+# HTTP clients and resilience
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "gzip", "http2"] }
+governor = { version = "0.10" }
+backon = { version = "1" }
+
+# Misc
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+figment = { version = "0.10", features = ["env", "toml"] }
+croner = { version = "4" }
+nucleo-matcher = { version = "0.3" }
+deunicode = { version = "1" }
+keyvalues-parser = { version = "0.2" }
+url = { version = "2" }
+
+# Tests
+insta = { version = "1", features = ["json"] }
+wiremock = { version = "0.6" }
+tempfile = { version = "3" }
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[[workspace.metadata.leptos]]
+name = "gameshelf"
+bin-package = "gameshelf-server"
+bin-target = "gameshelf"
+lib-package = "gameshelf-frontend"
+site-root = "target/site"
+site-pkg-dir = "pkg"
+style-file = "crates/app/style/main.css"
+assets-dir = "crates/app/public"
+site-addr = "127.0.0.1:3000"
+reload-port = 3001
+browserquery = "defaults"
+env = "DEV"
+bin-features = []
+bin-default-features = true
+lib-features = []
+lib-default-features = true
+lib-profile-release = "wasm-release"

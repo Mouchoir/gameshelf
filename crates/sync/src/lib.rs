@@ -1,0 +1,1 @@
+//! gameshelf sync crate.

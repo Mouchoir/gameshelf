@@ -1,0 +1,20 @@
+[package]
+name = "gameshelf-frontend"
+description = "WebAssembly hydration entry point of gameshelf."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+gameshelf-app = { workspace = true, features = ["hydrate"] }
+leptos = { workspace = true, features = ["hydrate"] }
+wasm-bindgen = { workspace = true }
+console_error_panic_hook = { workspace = true }

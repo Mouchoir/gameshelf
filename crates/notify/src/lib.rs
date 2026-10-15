@@ -1,0 +1,1 @@
+//! gameshelf notify crate.

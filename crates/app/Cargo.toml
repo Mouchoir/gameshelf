@@ -1,0 +1,45 @@
+[package]
+name = "gameshelf-app"
+description = "Leptos components, routes and server functions of gameshelf."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+gameshelf-core = { workspace = true }
+leptos = { workspace = true }
+leptos_router = { workspace = true }
+leptos_meta = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+time = { workspace = true }
+thiserror = { workspace = true }
+
+# Server-only dependencies (feature "ssr")
+leptos_axum = { workspace = true, optional = true }
+axum = { workspace = true, optional = true }
+gameshelf-store = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+tower-sessions = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+
+[features]
+default = []
+hydrate = ["leptos/hydrate", "uuid/js"]
+ssr = [
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "dep:leptos_axum",
+    "dep:axum",
+    "dep:gameshelf-store",
+    "dep:tokio",
+    "dep:tower-sessions",
+    "dep:tracing",
+]

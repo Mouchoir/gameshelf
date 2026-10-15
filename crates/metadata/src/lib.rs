@@ -1,0 +1,1 @@
+//! gameshelf metadata crate.
