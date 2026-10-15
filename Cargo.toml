@@ -71,6 +71,8 @@ tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 figment = { version = "0.10", features = ["env", "toml"] }
 croner = { version = "4" }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+chrono-tz = { version = "0.10" }
 nucleo-matcher = { version = "0.3" }
 deunicode = { version = "1" }
 keyvalues-parser = { version = "0.2" }

@@ -60,6 +60,7 @@ pub struct AccountView {
     pub status: AccountStatus,
     pub games: i64,
     pub last_sync_at: Option<OffsetDateTime>,
+    pub next_sync_at: Option<OffsetDateTime>,
     pub last_error: Option<String>,
     pub syncing: bool,
 }

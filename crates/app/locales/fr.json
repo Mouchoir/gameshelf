@@ -68,6 +68,7 @@
   "status_degraded": "En difficulté",
   "status_disabled": "Désactivé",
   "account_last_sync": "Dernière synchro",
+  "account_next_sync": "Prochaine synchro",
   "account_games": "Jeux",
   "account_sync_now": "Synchroniser",
   "account_sync_started": "Synchro lancée",

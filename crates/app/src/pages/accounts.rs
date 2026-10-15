@@ -70,6 +70,7 @@ fn AccountItem(
     let label = RwSignal::new(a.label.clone());
     let id = a.id;
     let last_sync = a.last_sync_at.map(format::date);
+    let next_sync = a.next_sync_at.map(format::date_time);
     let needs_reconnect = a.status == AccountStatus::NeedsReconnect;
     view! {
         <li class="account">
@@ -94,6 +95,7 @@ fn AccountItem(
             <dl class="facts">
                 <div><dt>{t!(i18n, account_games)}</dt><dd>{a.games}</dd></div>
                 <div><dt>{t!(i18n, account_last_sync)}</dt><dd>{match last_sync { Some(d) => d.into_any(), None => t!(i18n, never).into_any() }}</dd></div>
+                {next_sync.map(|n| view! { <div><dt>{t!(i18n, account_next_sync)}</dt><dd>{n}</dd></div> })}
                 {a.last_error.clone().map(|e| view! { <div class="wide"><dt>{t!(i18n, account_last_error)}</dt><dd class="error">{e}</dd></div> })}
             </dl>
             {needs_reconnect.then(|| {

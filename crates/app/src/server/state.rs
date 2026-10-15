@@ -15,6 +15,8 @@ use std::{
 /// Sign-in attempts allowed per window, per address and per username (contracts/http-api.md section 3).
 pub const LOGIN_ATTEMPTS: usize = 10;
 pub const LOGIN_WINDOW: Duration = Duration::from_secs(15 * 60);
+/// Accounts synced at the same time (research D6).
+pub const MAX_PARALLEL_SYNCS: usize = 3;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -26,6 +28,8 @@ pub struct AppState {
     pub https: bool,
     login_attempts: Arc<Mutex<HashMap<String, Vec<Instant>>>>,
     syncing: Arc<Mutex<HashSet<AccountId>>>,
+    sync_permits: Arc<tokio::sync::Semaphore>,
+    next_scheduled: Arc<RwLock<Option<time::OffsetDateTime>>>,
 }
 
 impl std::fmt::Debug for AppState {
@@ -57,6 +61,8 @@ impl AppState {
             https,
             login_attempts: Arc::default(),
             syncing: Arc::default(),
+            sync_permits: Arc::new(tokio::sync::Semaphore::new(MAX_PARALLEL_SYNCS)),
+            next_scheduled: Arc::default(),
         }
     }
 
@@ -91,6 +97,17 @@ impl AppState {
         allowed
     }
 
+    /// When the next scheduled sync of every account runs.
+    pub fn next_scheduled(&self) -> Option<time::OffsetDateTime> {
+        self.next_scheduled.read().ok().and_then(|g| *g)
+    }
+
+    pub fn set_next_scheduled(&self, at: Option<time::OffsetDateTime>) {
+        if let Ok(mut g) = self.next_scheduled.write() {
+            *g = at;
+        }
+    }
+
     pub fn is_syncing(&self, account: AccountId) -> bool {
         self.syncing.lock().map(|s| s.contains(&account)).unwrap_or(false)
     }
@@ -107,6 +124,7 @@ impl AppState {
         }
         let state = self.clone();
         tokio::spawn(async move {
+            let _permit = state.sync_permits.clone().acquire_owned().await;
             match state.syncer.run_account(account, trigger).await {
                 Ok(outcome) => tracing::info!(%account, ?outcome, "sync finished"),
                 Err(e) => tracing::error!(%account, error = %e, "sync failed"),

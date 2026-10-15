@@ -206,6 +206,11 @@ pub async fn accounts() -> Result<Vec<AccountView>, ServerFnError> {
             status: a.status,
             games,
             last_sync_at: a.last_sync_at,
+            next_sync_at: if a.status.syncs() && a.sync_enabled {
+                st.next_scheduled()
+            } else {
+                None
+            },
             last_error,
             syncing: st.is_syncing(a.id),
         });

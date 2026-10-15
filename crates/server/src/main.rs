@@ -3,6 +3,7 @@
 mod api;
 mod config;
 mod origin;
+mod schedule;
 
 use axum::{
     Router, body::Body, extract::State, http::Request, middleware, response::IntoResponse, routing::get,
@@ -65,6 +66,10 @@ async fn main() {
     );
     state.rebuild_search().await;
     spawn_housekeeping(store.clone());
+    match schedule::Schedule::parse(&cfg.sync_schedule, cfg.time_zone.as_deref()) {
+        Ok(s) => schedule::spawn(state.clone(), s),
+        Err(e) => fatal(&e.to_string()),
+    }
 
     let sessions = SessionManagerLayer::new(SqliteSessionStore::new(store.clone()))
         .with_name("gameshelf_session")

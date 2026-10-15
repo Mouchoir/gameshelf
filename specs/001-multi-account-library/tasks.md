@@ -164,12 +164,12 @@ search and a game detail page.
 
 - [X] T063 [P] [US3] Write the end-to-end sync test with the fake connector (added game appears with activity entry; failing account isolated; incomplete listing removes nothing) in `crates/sync/tests/e2e_sync.rs`
 - [ ] T064 [P] [US3] Write Playwright journeys V4 to V6 in `e2e/tests/us3-sync.spec.ts`
-- [ ] T065 [US3] Implement the job runner (jobs table, `locked_until` leases, global concurrency limit, per-platform semaphore, cancellation on shutdown) in `crates/sync/src/runner.rs`
-- [ ] T066 [US3] Implement the scheduler (croner, instance default `GAMESHELF_SYNC_SCHEDULE` in `TZ`, per-account override, startup catch-up of missed runs) in `crates/sync/src/scheduler.rs`
+- [X] T065 [US3] Implement the job runner (jobs table, `locked_until` leases, global concurrency limit, per-platform semaphore, cancellation on shutdown) in `crates/sync/src/runner.rs`
+- [X] T066 [US3] Implement the scheduler (croner, instance default `GAMESHELF_SYNC_SCHEDULE` in `TZ`, per-account override, startup catch-up of missed runs) in `crates/sync/src/scheduler.rs`
 - [ ] T067 [US3] Implement credential refresh before each run, persistence of rotated credentials, expiry detection within 7 days and status transitions in `crates/sync/src/health.rs`
 - [X] T068 [US3] Record sync runs (scope, trigger, status, counts, redacted error of at most 500 chars, `complete_listing`) and emit activity events (`game_added`, `game_unavailable`, `account_needs_reconnect`, `account_degraded`, `sync_failed`) in `crates/sync/src/apply.rs`
 - [X] T069 [US3] Write daily playtime snapshots when values change (FR-018) in `crates/sync/src/playtime.rs`
-- [ ] T070 [US3] Add "Sync now" for one account, one platform and everything, plus run history and health badges with platform-specific reconnect steps on `crates/app/src/routes/accounts.rs`
+- [X] T070 [US3] Add "Sync now" for one account, one platform and everything, plus run history and health badges with platform-specific reconnect steps on `crates/app/src/routes/accounts.rs`
 - [X] T071 [US3] Build the activity feed page in `crates/app/src/routes/activity.rs`
 - [ ] T072 [US3] Show unavailable ownerships hidden by default with their date, and a filter to reveal them, in `crates/app/src/components/filters.rs` and `crates/app/src/routes/game.rs`
 

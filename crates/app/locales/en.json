@@ -68,6 +68,7 @@
   "status_degraded": "Having trouble",
   "status_disabled": "Disabled",
   "account_last_sync": "Last sync",
+  "account_next_sync": "Next sync",
   "account_games": "Games",
   "account_sync_now": "Sync now",
   "account_sync_started": "Sync started",
