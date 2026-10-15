@@ -198,5 +198,6 @@
   "agents_delete": "Delete",
   "agents_delete_warning": "Deletes the agent and its install records. Games stay in your library.",
   "account_via_agent": "Fed by an agent",
-  "event_agent_silent": "An agent goes silent"
+  "event_agent_silent": "An agent goes silent",
+  "connect_added_notice": "Account connected. Its first import is running: its games appear in the Library as soon as it ends."
 }

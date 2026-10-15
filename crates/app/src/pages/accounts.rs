@@ -9,12 +9,15 @@ use crate::{
 };
 use gameshelf_core::account_status::AccountStatus;
 use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
+use leptos_router::hooks::{use_navigate, use_params_map, use_query_map};
 use std::{collections::HashMap, time::Duration};
 
 #[component]
 pub fn AccountsPage() -> impl IntoView {
     let i18n = use_i18n();
+    let query = use_query_map();
+    // Set by the connection pages, which come back here once an account is connected.
+    let added = move || query.with(|q| q.get("added"));
     let list = Resource::new(|| (), |_| accounts());
     let sync = ServerAction::<SyncNow>::new();
     let rename = ServerAction::<RenameAccount>::new();
@@ -42,15 +45,22 @@ pub fn AccountsPage() -> impl IntoView {
                 <h1>{t!(i18n, accounts_title)}</h1>
                 <a class="button primary" href="/accounts/connect">{t!(i18n, accounts_connect)}</a>
             </div>
+            {move || added().map(|_| view! { <p class="notice" role="status">{t!(i18n, connect_added_notice)}</p> })}
             <Transition fallback=move || view! { <p class="loading">{t!(i18n, loading)}</p> }>
                 {move || list.get().map(|r| match r {
                     Err(_) => view! { <p class="error">{t!(i18n, error_generic)}</p> }.into_any(),
                     Ok(list) if list.is_empty() => view! { <p class="empty">{t!(i18n, accounts_empty)}</p> }.into_any(),
-                    Ok(list) => view! {
-                        <ul class="account-list">
-                            {list.into_iter().map(|a| view! { <AccountItem a sync rename disconnect/> }).collect_view()}
-                        </ul>
-                    }.into_any(),
+                    Ok(list) => {
+                        let added = added();
+                        view! {
+                            <ul class="account-list">
+                                {list.into_iter().map(|a| {
+                                    let highlight = added.as_deref() == Some(a.id.to_string().as_str());
+                                    view! { <AccountItem a sync rename disconnect highlight/> }
+                                }).collect_view()}
+                            </ul>
+                        }.into_any()
+                    }
                 })}
             </Transition>
         </section>
@@ -63,6 +73,9 @@ fn AccountItem(
     sync: ServerAction<SyncNow>,
     rename: ServerAction<RenameAccount>,
     disconnect: ServerAction<DisconnectAccount>,
+    /// The account was just connected.
+    #[prop(optional)]
+    highlight: bool,
 ) -> impl IntoView {
     let i18n = use_i18n();
     let editing = RwSignal::new(false);
@@ -76,7 +89,7 @@ fn AccountItem(
         .then(|| a.credential_expires_at.map(format::date))
         .flatten();
     view! {
-        <li class="account">
+        <li class="account" class:just-added=highlight>
             <div class="account-main">
                 <PlatformIcon key=a.platform.clone() large=true/>
                 <div>
@@ -227,6 +240,7 @@ fn ConnectForm(p: PlatformView) -> impl IntoView {
         });
     };
     let result = move || action.value().get();
+    go_to_accounts_when_connected(action.value());
     view! {
         <h1><PlatformIcon key=p.key.clone() large=true/>" "{p.name.clone()}</h1>
         {help.then(|| view! { <p class="lead">{t!(i18n, connect_steam_help)}</p> })}
@@ -277,6 +291,7 @@ fn BrowserConnectForm(p: PlatformView) -> impl IntoView {
             label: label.get_untracked(),
         });
     };
+    go_to_accounts_when_connected(action.value());
     view! {
         <h1><PlatformIcon key=p.key.clone() large=true/>" "{p.name.clone()}</h1>
         <ol class="steps">
@@ -301,6 +316,18 @@ fn BrowserConnectForm(p: PlatformView) -> impl IntoView {
             <button type="submit" class="primary" disabled=move || action.pending().get()>{t!(i18n, connect_submit)}</button>
         </form>
     }
+}
+
+/// Opens the Accounts page, with the new account highlighted, as soon as a connection succeeds.
+fn go_to_accounts_when_connected(
+    value: impl Get<Value = Option<Result<ConnectResult, ServerFnError>>> + Send + Sync + 'static,
+) {
+    let navigate = use_navigate();
+    Effect::new(move |_| {
+        if let Some(Ok(ConnectResult::Connected(id))) = value.get() {
+            navigate(&format!("/accounts?added={id}"), Default::default());
+        }
+    });
 }
 
 /// Message shown after a connection attempt.

@@ -198,5 +198,6 @@
   "agents_delete": "Supprimer",
   "agents_delete_warning": "Supprime l'agent et ses relevés d'installation. Les jeux restent dans votre bibliothèque.",
   "account_via_agent": "Alimenté par un agent",
-  "event_agent_silent": "Un agent ne répond plus"
+  "event_agent_silent": "Un agent ne répond plus",
+  "connect_added_notice": "Compte connecté. Son premier import est en cours : ses jeux apparaissent dans la Bibliothèque dès qu'il se termine."
 }

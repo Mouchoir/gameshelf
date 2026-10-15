@@ -87,6 +87,8 @@ input:focus, select:focus { border-color: var(--accent); outline: none; box-shad
 form.inline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .error { color: var(--danger); }
 .ok-text { color: var(--ok); }
+.notice { padding: 10px 14px; border-radius: var(--radius); background: var(--surface-2); color: var(--ok); }
+.account.just-added { outline: 2px solid var(--accent); outline-offset: 2px; }
 .warn-text { color: var(--warn); }
 
 /* Chips, badges, platform icons */
