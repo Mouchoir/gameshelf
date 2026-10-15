@@ -1,0 +1,21 @@
+# Build output
+/target/
+/crates/*/target/
+/e2e/node_modules/
+/e2e/test-results/
+/e2e/playwright-report/
+
+# Local runtime data and secrets: never commit them
+/.data/
+*.key
+*key.txt
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

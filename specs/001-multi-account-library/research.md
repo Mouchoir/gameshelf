@@ -1,6 +1,7 @@
 # Research: Platform Sources, Enrichment and Identity
 
-**Feature**: [spec.md](./spec.md) | **Date**: 2026-10-15 | **Status**: pre-plan input, extended during `/speckit-plan`
+**Feature**: [spec.md](./spec.md) | **Plan**: [plan.md](./plan.md) | **Date**: 2026-10-15 | **Status**: Phase 0
+complete (sections 1-4: platform research; section 5: technical decisions D1-D15)
 
 This document records how each platform's library can be read, what can be enriched, and how games are matched
 across platforms. Claims that could not be confirmed against documentation, source code or a live call are marked
@@ -104,6 +105,142 @@ Group editions under one game with per-ownership edition; keep remasters separat
 **Platform logos**: Simple Icons (CC0 files, trademarks remain with owners; Xbox and Nintendo are absent), Font
 Awesome Free brands, or official brand kits (Steam brand guidelines; Xbox via Microsoft's brand team). Nominative
 use only (constitution, Licensing section).
+
+## 5. Technical decisions (Phase 0 of `/speckit-plan`)
+
+Versions were checked on crates.io on 2026-10-15. Pre-releases (Leptos 0.9 RC, Tauri 3 alpha) are excluded.
+
+### D1. Workspace and binaries
+
+- **Decision**: one Cargo workspace (edition 2024) with library crates `core`, `store`, `connectors`, `metadata`,
+  `notify`, `sync`, a Leptos `app` crate (shared components and server functions), a `frontend` crate (hydration
+  entry point), the `server` binary and the `agent` binary.
+- **Rationale**: keeps pure domain logic (matching, visibility, sharing) testable without I/O, lets connectors be
+  shared by the server and the agent, and matches the cargo-leptos workspace layout.
+- **Alternatives**: a single crate (slower builds, connectors entangled with the web layer); one crate per
+  connector (dozens of crates for little gain at this stage; connectors are modules behind cargo features).
+
+### D2. Web stack
+
+- **Decision**: Leptos 0.8 (stable 0.8.22) with server-side rendering and hydration, `leptos_axum` 0.8, Axum 0.8,
+  Tokio 1.x, built with cargo-leptos 0.3. Server functions serve the UI; a small versioned REST surface serves the
+  agent, exports and health checks.
+- **Rationale**: the constitution mandates Leptos; SSR gives a fast first paint on a NAS, hydration gives instant
+  filtering and search-as-you-type.
+- **Alternatives**: Leptos 0.9 (release candidate only), Axum + htmx (rejected by the maintainer), Dioxus.
+
+### D3. Storage
+
+- **Decision**: SQLite in WAL mode through sqlx 0.9 (bundled SQLite), embedded forward-only migrations run at
+  start-up, one database file in the data volume next to the artwork cache.
+- **Rationale**: Principle VI (no mandatory external service, backup = copy the volume). A household library
+  (tens of thousands of rows) is far below SQLite's limits.
+- **Alternatives**: PostgreSQL (extra service), sled or redb (no SQL for the visibility rules).
+
+### D4. Sessions and authentication
+
+- **Decision**: `tower-sessions` 0.15 with a small session store written against sqlx 0.9 (the published
+  `tower-sessions-sqlx-store` 0.15 depends on sqlx 0.8 and tower-sessions-core 0.14, which would link two SQLite
+  copies). Passwords hashed with Argon2id (`argon2` 0.6). Cookies `Secure` (when served over HTTPS), `HttpOnly`,
+  `SameSite=Lax`, rotated on login. Optional trusted-proxy identity: a configured header accepted only from
+  configured proxy CIDRs, mapped to an existing profile by username or email. Passkeys are a later addition.
+- **Rationale**: Principle IV; the instance may be reachable through a tunnel.
+- **Alternatives**: delegating everything to the proxy (rejected in clarification), JWT sessions (revocation
+  harder).
+
+### D5. Secret storage
+
+- **Decision**: every platform credential and notification secret is sealed with XChaCha20-Poly1305
+  (`chacha20poly1305` 0.11) using a 32-byte key from `GAMESHELF_SECRET_KEY` or `GAMESHELF_SECRET_KEY_FILE`, with a
+  key id stored next to each ciphertext to allow rotation. Secrets are held in `secrecy` wrappers, never
+  implement `Display`/`Debug`, and are redacted from logs and errors.
+- **Rationale**: Principle IV; the database file alone is useless without the key.
+- **Alternatives**: OS keychain on the server (absent in containers), SQLCipher (whole-database encryption, more
+  build complexity, still needs a key).
+
+### D6. Sync engine and scheduling
+
+- **Decision**: an in-process job runner backed by a `jobs` table: cron expressions parsed with `croner` 4, one
+  job per account per capability, a global concurrency limit plus a per-platform semaphore, per-platform rate
+  limiting with `governor` 0.10, retries with exponential backoff and jitter (`backon` 1.6). A run writes into a
+  staging set and applies a diff in one transaction; removals are applied only when the connector reports a
+  complete listing (see contracts/connector.md).
+- **Rationale**: FR-019 to FR-025, SC-006; no external queue (Principle VI).
+- **Alternatives**: `tokio-cron-scheduler` (no persistence of run state), apalis (extra moving parts).
+
+### D7. Search
+
+- **Decision**: an in-memory search index rebuilt after each sync and on match changes: titles normalized with
+  `deunicode` (accents, punctuation, leading articles), scored with `nucleo-matcher` 0.3 (fuzzy, typo-tolerant),
+  then filtered by the viewer's visibility set. Queries go through a server function debounced at 120 ms.
+- **Rationale**: SC-002 (under 0.2 s for 20,000 ownerships): an in-memory fuzzy scan of 20,000 titles takes a few
+  milliseconds; SQLite FTS5 trigram offers substring but not typo tolerance.
+- **Alternatives**: tantivy (heavy for this size), shipping the whole index to the browser (several MB on a phone).
+
+### D8. Visibility and sharing
+
+- **Decision**: one function in `core` computes the set of ownerships a viewer may see: own accounts, plus
+  accounts of profiles sharing with the viewer, minus exclusions (game, platform, account; global or per
+  audience). Every query path (grid, search, counts, filters, detail, direct links, exports) goes through the
+  store method built on it; there is no other way to read ownerships from the web layer.
+- **Rationale**: SC-011 requires zero leaks; a single choke point is testable.
+- **Alternatives**: per-handler checks (easy to forget one).
+
+### D9. Agent
+
+- **Decision**: a Tauri 2 desktop application (stable 2.12) for Windows and Linux with a tray icon, a first-run
+  wizard, the autostart plugin (opt-in), and embedded webview windows for platform logins (WebView2 on Windows,
+  WebKitGTK on Linux) so the agent can capture authorization codes or local callbacks without copy-paste. Its UI is
+  a small Leptos client-side app. A `--headless` mode supports scanning without a desktop session. Local readers
+  and parsers live in the shared `connectors` crate. The agent token is stored in the OS keychain (`keyring` 4).
+- **Rationale**: FR-026 to FR-030 and the browser-login clarification; Tauri provides installers (MSI/NSIS,
+  AppImage/deb), autostart and webviews in Rust.
+- **Alternatives**: a console wizard plus default browser (cannot capture login codes), Tauri 3 (alpha).
+
+### D10. Agent transport and pairing
+
+- **Decision**: JSON over HTTPS under `/api/agent/v1`, bearer token per agent (256-bit random, stored hashed on the
+  server), pairing with an 8-character one-time code valid 10 minutes and usable once. Reports are full snapshots
+  per launcher source with a content hash so unchanged reports are cheap. The server can push configuration only
+  through the agent's periodic config pull (no inbound connection to the agent).
+- **Rationale**: works through NAT, tunnels and proxies; revocation is a single row update.
+
+### D11. Metadata and artwork
+
+- **Decision**: IGDB for identity and covers (operator-supplied Twitch client id and secret), SteamGridDB as an
+  optional artwork upgrade (operator key), Wikidata SPARQL as identity fallback, platform artwork as last resort.
+  Images are downloaded once, resized with `image` 0.25 to two sizes, stored by content hash in the data volume
+  and served with long-lived cache headers.
+- **Rationale**: section 4 above; Principle I (no shared keys, nothing committed).
+
+### D12. Notifications
+
+- **Decision**: a `notify` crate with three senders (Discord webhook, ntfy publish with optional bearer token,
+  Gotify message API) behind one trait, fed by grouped activity events per sync run and a daily reminder ledger.
+- **Rationale**: FR-034 to FR-036.
+
+### D13. Localization and accessibility
+
+- **Decision**: `leptos_i18n` 0.6 (compatible with Leptos 0.8) with `en` as reference and `fr`; compile-time
+  checked keys; a CI check that both catalogs have the same keys. Accessibility checked with axe in end-to-end
+  tests.
+- **Rationale**: Principle VII.
+
+### D14. Configuration, logging, packaging
+
+- **Decision**: configuration from environment variables with an optional TOML file (`figment` 0.10); structured
+  logs with `tracing`; `/healthz` and `/readyz`; optional Prometheus metrics, off by default. The server image is
+  built with cargo-chef in a multi-stage Dockerfile, published for linux/amd64 and linux/arm64 to GHCR by GitHub
+  Actions; agent installers are built in CI for Windows and Linux.
+- **Rationale**: Principle VI; NAS models exist on both architectures.
+
+### D15. Testing
+
+- **Decision**: unit tests in `core`; connector contract tests replaying anonymized fixtures through `wiremock`
+  0.6, with `insta` 1.x snapshots of the normalized output; store tests on temporary SQLite files; an end-to-end
+  sync test with a fake connector; Playwright tests for the main user journeys and visibility leaks; no test hits
+  the network.
+- **Rationale**: Constitution, Development Workflow and Quality Gates.
 
 ## Sources
 
