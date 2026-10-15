@@ -1,5 +1,6 @@
 [package]
 name = "gameshelf-sync"
+description = "Import pipeline, scheduler and account health of gameshelf (research D6)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,3 +11,16 @@ publish = false
 workspace = true
 
 [dependencies]
+gameshelf-core = { workspace = true }
+gameshelf-store = { workspace = true }
+gameshelf-connectors = { workspace = true }
+gameshelf-metadata = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+serde_json = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+secrecy = { workspace = true }
+sqlx = { workspace = true }

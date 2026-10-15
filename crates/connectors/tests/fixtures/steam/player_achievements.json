@@ -1,0 +1,12 @@
+{
+  "playerstats": {
+    "steamID": "76561202255233001",
+    "gameName": "Portal 2",
+    "achievements": [
+      { "apiname": "ACH_ONE", "achieved": 1, "unlocktime": 1700000000 },
+      { "apiname": "ACH_TWO", "achieved": 0, "unlocktime": 0 },
+      { "apiname": "ACH_THREE", "achieved": 1, "unlocktime": 1700000100 }
+    ],
+    "success": true
+  }
+}

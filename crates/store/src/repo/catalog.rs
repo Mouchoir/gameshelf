@@ -167,6 +167,30 @@ impl Store {
         Ok(id)
     }
 
+    /// Sets the canonical title, release year and metadata source of a game.
+    pub async fn set_game_metadata(
+        &self,
+        game: GameId,
+        title: &str,
+        release_year: Option<i32>,
+        source: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE games SET title = ?, sort_title = ?, search_key = ?, release_year = coalesce(?, release_year),
+                metadata_source = ?, updated_at = ? WHERE id = ? AND coalesce(metadata_source, '') <> 'manual'",
+        )
+        .bind(title.trim())
+        .bind(normalize::sort_title(title))
+        .bind(normalize::search_key(title))
+        .bind(release_year)
+        .bind(source)
+        .bind(now())
+        .bind(game.txt())
+        .execute(self.pool())
+        .await?;
+        Ok(())
+    }
+
     /// Updates a game's display title and its derived keys.
     pub async fn set_game_title(&self, game: GameId, title: &str) -> Result<()> {
         sqlx::query(
@@ -255,6 +279,267 @@ impl Store {
         .await?;
         Ok(done.rows_affected())
     }
+
+    /// Records a cached image and returns its asset id (existing id when the content is already known).
+    pub async fn put_asset(
+        &self,
+        sha256: &str,
+        mime: &str,
+        width: u32,
+        height: u32,
+        source: &str,
+        source_url: Option<&str>,
+    ) -> Result<String> {
+        sqlx::query(
+            "INSERT OR IGNORE INTO assets (id, sha256, variant, mime, width, height, source, source_url, fetched_at)
+             VALUES (?, ?, 'grid', ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(uuid::Uuid::now_v7().hyphenated().to_string())
+        .bind(sha256)
+        .bind(mime)
+        .bind(i64::from(width))
+        .bind(i64::from(height))
+        .bind(source)
+        .bind(source_url)
+        .bind(now())
+        .execute(self.pool())
+        .await?;
+        Ok(sqlx::query_scalar("SELECT id FROM assets WHERE sha256 = ?")
+            .bind(sha256)
+            .fetch_one(self.pool())
+            .await?)
+    }
+
+    /// Whether an asset with this hash exists (used to serve `/assets/{sha256}`).
+    pub async fn asset_mime(&self, sha256: &str) -> Result<Option<String>> {
+        Ok(sqlx::query_scalar("SELECT mime FROM assets WHERE sha256 = ?")
+            .bind(sha256)
+            .fetch_optional(self.pool())
+            .await?)
+    }
+
+    pub async fn set_game_cover(&self, game: GameId, asset_id: &str) -> Result<()> {
+        sqlx::query("UPDATE games SET cover_asset_id = ?, updated_at = ? WHERE id = ?")
+            .bind(asset_id)
+            .bind(now())
+            .bind(game.txt())
+            .execute(self.pool())
+            .await?;
+        Ok(())
+    }
+
+    /// Games without a cover, with the artwork URLs their products offer.
+    pub async fn games_without_cover(&self, limit: i64) -> Result<Vec<(GameId, Vec<String>)>> {
+        let rows = sqlx::query(
+            "SELECT g.id, group_concat(p.platform_artwork, char(31)) AS art FROM games g
+             JOIN platform_products p ON p.game_id = g.id
+             WHERE g.cover_asset_id IS NULL GROUP BY g.id LIMIT ?",
+        )
+        .bind(limit)
+        .fetch_all(self.pool())
+        .await?;
+        rows.iter()
+            .map(|r| {
+                let art: Option<String> = r.try_get("art")?;
+                let mut urls = Vec::new();
+                for blob in art.unwrap_or_default().split('\u{1f}') {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(blob) {
+                        for key in ["cover", "header"] {
+                            if let Some(u) = v.get(key).and_then(|x| x.as_str()) {
+                                urls.push(u.to_string());
+                            }
+                        }
+                    }
+                }
+                Ok((GameId::from_txt(&r.try_get::<String, _>("id")?)?, urls))
+            })
+            .collect()
+    }
+
+    /// External ids recorded for a game.
+    pub async fn game_external_ids(&self, game: GameId) -> Result<Vec<(String, String)>> {
+        Ok(sqlx::query_as(
+            "SELECT source, external_id FROM game_external_ids WHERE game_id = ? ORDER BY source",
+        )
+        .bind(game.txt())
+        .fetch_all(self.pool())
+        .await?)
+    }
+
+    /// Games that have no IGDB id yet, with their platform ids, for metadata resolution.
+    pub async fn games_missing_igdb(&self, limit: i64) -> Result<Vec<(GameId, String, String)>> {
+        let rows = sqlx::query(
+            "SELECT g.id, p.platform, p.platform_game_id FROM games g
+             JOIN platform_products p ON p.game_id = g.id
+             WHERE NOT EXISTS (SELECT 1 FROM game_external_ids e WHERE e.game_id = g.id AND e.source IN ('igdb', 'igdb-miss'))
+               AND g.metadata_source <> 'manual'
+             LIMIT ?",
+        )
+        .bind(limit)
+        .fetch_all(self.pool())
+        .await?;
+        rows.iter()
+            .map(|r| {
+                Ok((
+                    GameId::from_txt(&r.try_get::<String, _>("id")?)?,
+                    r.try_get("platform")?,
+                    r.try_get("platform_game_id")?,
+                ))
+            })
+            .collect()
+    }
+
+    /// Moves every product and external id of `from` into `into`, then deletes `from`. Products the player
+    /// split off explicitly are never moved.
+    pub async fn merge_games(&self, from: GameId, into: GameId) -> Result<()> {
+        if from == into {
+            return Ok(());
+        }
+        let mut tx = self.pool().begin().await?;
+        sqlx::query(
+            "UPDATE platform_products SET game_id = ?1 WHERE game_id = ?2
+               AND id NOT IN (SELECT product_id FROM match_decisions WHERE kind = 'split')",
+        )
+        .bind(into.txt())
+        .bind(from.txt())
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query("UPDATE OR IGNORE game_external_ids SET game_id = ? WHERE game_id = ?")
+            .bind(into.txt())
+            .bind(from.txt())
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("UPDATE games SET parent_game_id = ? WHERE parent_game_id = ?")
+            .bind(into.txt())
+            .bind(from.txt())
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query("UPDATE OR IGNORE game_tags SET game_id = ? WHERE game_id = ?")
+            .bind(into.txt())
+            .bind(from.txt())
+            .execute(&mut *tx)
+            .await?;
+        let remaining: i64 = sqlx::query_scalar("SELECT count(*) FROM platform_products WHERE game_id = ?")
+            .bind(from.txt())
+            .fetch_one(&mut *tx)
+            .await?;
+        if remaining == 0 {
+            sqlx::query("DELETE FROM games WHERE id = ?")
+                .bind(from.txt())
+                .execute(&mut *tx)
+                .await?;
+        }
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Records a player's merge (product joins `target`) or split (product gets its own game) and applies it.
+    pub async fn record_match_decision(
+        &self,
+        product: ProductId,
+        target: Option<GameId>,
+        by: Option<gameshelf_core::ProfileId>,
+    ) -> Result<GameId> {
+        let current = self.get_product(product).await?.ok_or(StoreError::NotFound)?;
+        let kind = if target.is_some() { "merge" } else { "split" };
+        sqlx::query("DELETE FROM match_decisions WHERE product_id = ?")
+            .bind(product.txt())
+            .execute(self.pool())
+            .await?;
+        let game = match target {
+            Some(g) => g,
+            None => {
+                self.create_game(&current.title, current.kind, None, None, "manual")
+                    .await?
+            }
+        };
+        sqlx::query(
+            "INSERT INTO match_decisions (id, kind, product_id, target_game_id, created_by, created_at)
+             VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(uuid::Uuid::now_v7().hyphenated().to_string())
+        .bind(kind)
+        .bind(product.txt())
+        .bind(game.txt())
+        .bind(by.map(|p| p.txt()))
+        .bind(now())
+        .execute(self.pool())
+        .await?;
+        self.set_product_game(product, Some(game)).await?;
+        self.delete_orphan_games().await?;
+        Ok(game)
+    }
+
+    /// The game a player pinned a product to, if any.
+    pub async fn match_decision_for(&self, product: ProductId) -> Result<Option<GameId>> {
+        let id: Option<Option<String>> =
+            sqlx::query_scalar("SELECT target_game_id FROM match_decisions WHERE product_id = ?")
+                .bind(product.txt())
+                .fetch_optional(self.pool())
+                .await?;
+        opt_id(id.flatten())
+    }
+
+    /// Basic facts about a game for the detail page.
+    pub async fn game_summary(&self, game: GameId) -> Result<Option<GameSummary>> {
+        let row = sqlx::query(
+            "SELECT g.id, g.title, g.release_year, g.kind, g.parent_game_id, g.description,
+                (SELECT sha256 FROM assets a WHERE a.id = g.cover_asset_id) AS cover
+             FROM games g WHERE g.id = ?",
+        )
+        .bind(game.txt())
+        .fetch_optional(self.pool())
+        .await?;
+        let Some(r) = row else { return Ok(None) };
+        Ok(Some(GameSummary {
+            id: GameId::from_txt(&r.try_get::<String, _>("id")?)?,
+            title: r.try_get("title")?,
+            release_year: r.try_get("release_year")?,
+            kind: r.try_get("kind")?,
+            parent: opt_id(r.try_get("parent_game_id")?)?,
+            description: r.try_get("description")?,
+            cover: r.try_get("cover")?,
+        }))
+    }
+
+    /// DLC of a game.
+    pub async fn dlc_of(&self, game: GameId) -> Result<Vec<GameSummary>> {
+        let ids: Vec<String> =
+            sqlx::query_scalar("SELECT id FROM games WHERE parent_game_id = ? ORDER BY sort_title")
+                .bind(game.txt())
+                .fetch_all(self.pool())
+                .await?;
+        let mut out = Vec::with_capacity(ids.len());
+        for id in ids {
+            if let Some(s) = self.game_summary(GameId::from_txt(&id)?).await? {
+                out.push(s);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Every game's id and normalized title, for the search index.
+    pub async fn all_game_keys(&self) -> Result<Vec<(GameId, String)>> {
+        let rows: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, search_key FROM games WHERE kind IN ('game', 'tool')")
+                .fetch_all(self.pool())
+                .await?;
+        rows.into_iter()
+            .map(|(id, key)| Ok((GameId::from_txt(&id)?, key)))
+            .collect()
+    }
+}
+
+/// Facts about a game shown on its detail page.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct GameSummary {
+    pub id: GameId,
+    pub title: String,
+    pub release_year: Option<i32>,
+    pub kind: String,
+    pub parent: Option<GameId>,
+    pub description: Option<String>,
+    pub cover: Option<String>,
 }
 
 #[cfg(test)]

@@ -1,5 +1,6 @@
 [package]
 name = "gameshelf-connectors"
+description = "Platform connectors and local sources of gameshelf (contracts/connector.md)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,4 +10,27 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+default = []
+# Development-only connector serving synthetic libraries.
+dev-fake = []
+
 [dependencies]
+gameshelf-core = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+governor = { workspace = true }
+backon = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }
+insta = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
+regex-lite = { version = "0.1" }

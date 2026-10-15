@@ -11,12 +11,14 @@ pub mod seal;
 pub mod session_store;
 pub mod visibility;
 
+pub use visibility::{LibraryGame, LibraryPage, LibraryQuery, Sort, VisibleOwnership};
+
 pub use db::Store;
 pub use error::StoreError;
 pub use repo::{
     accounts::{Account, NewAccount},
     activity::{ActivityEvent, ActivityKind},
-    catalog::{NewProduct, Product},
+    catalog::{GameSummary, NewProduct, Product},
     credentials::{CredentialKind, CredentialMeta, OpenedCredential},
     ownership::{ApplyOutcome, OwnershipSource, SnapshotItem},
     profiles::{NewProfile, Profile},

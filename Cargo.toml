@@ -62,7 +62,7 @@ base64 = { version = "0.22" }
 zeroize = { version = "1" }
 
 # HTTP clients and resilience
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "gzip", "http2"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "query", "form", "rustls", "gzip", "http2"] }
 governor = { version = "0.10" }
 backon = { version = "1" }
 

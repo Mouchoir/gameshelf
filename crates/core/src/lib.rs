@@ -4,8 +4,10 @@
 //! tested without a database or network (Constitution, Principle II and research decision D1).
 
 pub mod account_status;
+pub mod matching;
 pub mod model;
 pub mod normalize;
 pub mod platform;
+pub mod search;
 
 pub use model::*;

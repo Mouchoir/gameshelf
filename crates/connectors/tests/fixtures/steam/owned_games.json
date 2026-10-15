@@ -1,0 +1,11 @@
+{
+  "response": {
+    "game_count": 4,
+    "games": [
+      { "appid": 620, "name": "Portal 2", "playtime_forever": 2148, "rtime_last_played": 1760000000, "img_icon_url": "0000000000000000000000000000000000000000" },
+      { "appid": 730, "name": "Counter-Strike 2", "playtime_forever": 0, "rtime_last_played": 0, "has_community_visible_stats": true },
+      { "appid": 1245620, "name": "ELDEN RING", "playtime_forever": 61, "rtime_last_played": 1750000000, "playtime_2weeks": 12, "unknown_future_field": { "x": 1 } },
+      { "appid": 3000001, "name": "", "playtime_forever": 5, "rtime_last_played": 0 }
+    ]
+  }
+}

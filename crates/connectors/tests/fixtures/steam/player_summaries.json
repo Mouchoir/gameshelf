@@ -1,0 +1,7 @@
+{
+  "response": {
+    "players": [
+      { "steamid": "76561202255233001", "communityvisibilitystate": 3, "profilestate": 1, "personaname": "example-user", "avatar": "https://example.com/avatar.jpg" }
+    ]
+  }
+}

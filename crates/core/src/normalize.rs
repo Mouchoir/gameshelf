@@ -49,6 +49,9 @@ pub fn sort_title(title: &str) -> String {
     let cleaned: String = title.chars().filter(|c| !SYMBOLS.contains(c)).collect();
     let trimmed = cleaned.trim();
     let lower = trimmed.to_lowercase();
+    if lower.len() != trimmed.len() {
+        return trimmed.to_string();
+    }
     for article in ARTICLES {
         if lower.starts_with(article) && lower.len() > article.len() {
             let rest = &trimmed[article.len()..];

@@ -1,5 +1,6 @@
 [package]
 name = "gameshelf-metadata"
+description = "Game identity, metadata and artwork providers of gameshelf (research section 4, D11)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,3 +11,18 @@ publish = false
 workspace = true
 
 [dependencies]
+gameshelf-core = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+sha2 = { workspace = true }
+secrecy = { workspace = true }
+time = { workspace = true }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+
+[dev-dependencies]
+wiremock = { workspace = true }
+tempfile = { workspace = true }
